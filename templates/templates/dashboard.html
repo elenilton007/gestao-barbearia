@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>📊 Dashboard</h2>
+
+<div class="card">
+    <h3>Faturamento Total</h3>
+    <p class="valor-destaque">R$ {{ "%.2f"|format(total) }}</p>
+</div>
+
+<div class="card">
+    <h3>Comissões por Barbeiro</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Barbeiro</th>
+                <th>Faturado</th>
+                <th>Comissão (%)</th>
+                <th>Valor da Comissão</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in comissoes %}
+            <tr>
+                <td>{{ c.barbeiro }}</td>
+                <td>R$ {{ "%.2f"|format(c.total_faturado) }}</td>
+                <td>{{ c.comissao_percentual }}%</td>
+                <td>R$ {{ "%.2f"|format(c.comissao_valor) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="card">
+    <h3>Serviços Mais Vendidos</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Serviço</th>
+                <th>Quantidade</th>
+                <th>Faturado</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in servicos %}
+            <tr>
+                <td>{{ s.servico }}</td>
+                <td>{{ s.quantidade }}</td>
+                <td>R$ {{ "%.2f"|format(s.total_faturado) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
