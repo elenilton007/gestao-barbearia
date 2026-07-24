@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>✂️ Atendimentos</h2>
+
+<div class="card">
+    <h3>Registrar Novo Atendimento</h3>
+    <form method="POST" action="{{ url_for('novo_atendimento') }}">
+        <label for="cliente_id">Cliente:</label>
+        <select id="cliente_id" name="cliente_id" required>
+            {% for cliente in clientes %}
+            <option value="{{ cliente.id }}">{{ cliente.nome }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="barbeiro_id">Barbeiro:</label>
+        <select id="barbeiro_id" name="barbeiro_id" required>
+            {% for barbeiro in barbeiros %}
+            <option value="{{ barbeiro.id }}">{{ barbeiro.nome }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="servico_id">Serviço:</label>
+        <select id="servico_id" name="servico_id" required>
+            {% for servico in servicos %}
+            <option value="{{ servico.id }}">{{ servico.nome }} - R$ {{ "%.2f"|format(servico.preco) }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="valor_cobrado">Valor Cobrado:</label>
+        <input type="number" step="0.01" id="valor_cobrado" name="valor_cobrado" required>
+
+        <label for="forma_pagamento">Forma de Pagamento:</label>
+        <select id="forma_pagamento" name="forma_pagamento">
+            <option value="dinheiro">Dinheiro</option>
+            <option value="cartao">Cartão</option>
+            <option value="pix">Pix</option>
+        </select>
+
+        <button type="submit">Registrar</button>
+    </form>
+</div>
+
+<div class="card">
+    <h3>Histórico de Atendimentos</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Cliente</th>
+                <th>Barbeiro</th>
+                <th>Serviço</th>
+                <th>Data/Hora</th>
+                <th>Valor</th>
+                <th>Pagamento</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for atendimento in atendimentos %}
+            <tr>
+                <td>{{ atendimento.cliente }}</td>
+                <td>{{ atendimento.barbeiro }}</td>
+                <td>{{ atendimento.servico }}</td>
+                <td>{{ atendimento.data_hora }}</td>
+                <td>R$ {{ "%.2f"|format(atendimento.valor_cobrado) }}</td>
+                <td>{{ atendimento.forma_pagamento }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
