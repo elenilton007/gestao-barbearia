@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>👤 Clientes</h2>
+
+<div class="card">
+    <h3>Cadastrar Novo Cliente</h3>
+    <form method="POST" action="{{ url_for('novo_cliente') }}">
+        <label for="nome">Nome:</label>
+        <input type="text" id="nome" name="nome" required>
+
+        <label for="telefone">Telefone:</label>
+        <input type="text" id="telefone" name="telefone">
+
+        <button type="submit">Cadastrar</button>
+    </form>
+</div>
+
+<div class="card">
+    <h3>Lista de Clientes</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Nome</th>
+                <th>Telefone</th>
+                <th>Cadastrado em</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cliente in clientes %}
+            <tr>
+                <td>{{ cliente.nome }}</td>
+                <td>{{ cliente.telefone or "-" }}</td>
+                <td>{{ cliente.criado_em }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
