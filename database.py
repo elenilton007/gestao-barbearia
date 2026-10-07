@@ -11,9 +11,14 @@ import os
 DATABASE_PATH = os.path.join(os.path.dirname(__file__), "barbearia.db")
 
 
+def get_database_path():
+    """Caminho do banco: variável de ambiente BARBEARIA_DB ou o padrão."""
+    return os.environ.get("BARBEARIA_DB", DATABASE_PATH)
+
+
 def get_connection():
     """Cria e retorna uma conexão com o banco de dados SQLite."""
-    conn = sqlite3.connect(DATABASE_PATH)
+    conn = sqlite3.connect(get_database_path())
     conn.row_factory = sqlite3.Row  # permite acessar colunas pelo nome
     return conn
 
