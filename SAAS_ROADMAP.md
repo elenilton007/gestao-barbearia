@@ -5,10 +5,11 @@ como serviço por assinatura para barbearias. Itens ordenados por prioridade.
 
 ## Estado atual
 
-Hoje o sistema é uma aplicação **de uma única barbearia, sem login**, rodando
+Hoje o sistema é uma aplicação **de uma única barbearia**, rodando
 em SQLite local com o servidor de desenvolvimento do Flask. Já tem
 `SECRET_KEY` por variável de ambiente, debug desligado por padrão e
-proteção CSRF nos formulários (Flask-WTF).
+proteção CSRF nos formulários (Flask-WTF), e login com os papéis *dono*
+e *barbeiro* (o barbeiro vê só os próprios atendimentos e comissões).
 Tem cadastro de clientes, registro de atendimentos, comissões e relatórios
 básicos. Barbeiros e serviços só existem via `schema.sql` (não há tela para
 cadastrá-los), e rodar `python database.py` **apaga todos os dados**
@@ -21,10 +22,11 @@ cadastrá-los), e rodar `python database.py` **apaga todos os dados**
      `clientes`, `barbeiros`, `servicos` e `atendimentos`.
    - Filtrar **todas** as queries de `models.py` e `reports.py` pelo tenant
      da sessão (hoje nenhuma filtra nada).
-2. **Autenticação e permissões** — tabela `usuarios` com senha em hash
-   (`werkzeug.security` ou Flask-Login), papéis *dono*, *recepção* e
-   *barbeiro* (barbeiro vê só as próprias comissões), recuperação de senha
-   por e-mail.
+2. **Autenticação e permissões**
+   - ~~Tabela `usuarios` com senha em hash (`werkzeug.security`), papéis
+     *dono* e *barbeiro* (barbeiro vê só as próprias comissões).~~ Feito.
+   - Papel *recepção*, tela para o dono gerenciar usuários (hoje é pelo
+     `criar_usuario.py`), troca e recuperação de senha por e-mail.
 3. **Segurança web**
    - ~~`SECRET_KEY` via variável de ambiente e proteção CSRF nos
      formulários (Flask-WTF).~~ Feito.

@@ -23,14 +23,27 @@ def get_connection():
     return conn
 
 
-def init_db():
-    """Inicializa o banco de dados executando o schema.sql."""
-    schema_path = os.path.join(os.path.dirname(__file__), "schema.sql")
+def _executar_script(nome_arquivo):
+    caminho = os.path.join(os.path.dirname(__file__), nome_arquivo)
     conn = get_connection()
-    with open(schema_path, "r", encoding="utf-8") as f:
+    with open(caminho, "r", encoding="utf-8") as f:
         conn.executescript(f.read())
     conn.commit()
     conn.close()
+
+
+def criar_tabela_usuarios():
+    """
+    Cria a tabela de usuários se ela ainda não existir. Não apaga nada,
+    então serve para atualizar um banco antigo que já tem dados.
+    """
+    _executar_script("schema_usuarios.sql")
+
+
+def init_db():
+    """Inicializa o banco de dados executando o schema.sql."""
+    _executar_script("schema.sql")
+    criar_tabela_usuarios()
     print("Banco de dados inicializado com sucesso.")
 
 
