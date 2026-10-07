@@ -18,3 +18,11 @@ services:
         generateValue: true
       - key: COOKIE_SEGURO
         value: "1"
+      # Primeiro dono, criado no deploy enquanto o banco não tem nenhum
+      # usuário (o plano Free não tem terminal). Depois são ignoradas.
+      - key: DONO_USUARIO
+        sync: false
+      - key: DONO_SENHA
+        sync: false
+      - key: BARBEARIA_NOME
+        sync: false
