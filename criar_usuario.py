@@ -20,7 +20,6 @@ dados por barbearia), sem apagar nenhum dado.
 
 import argparse
 import getpass
-import sqlite3
 import sys
 
 import database
@@ -97,7 +96,7 @@ def main(argv=None):
     except ValueError as erro:
         print(erro)
         return 1
-    except sqlite3.IntegrityError:
+    except database.IntegrityError:
         print(f"Já existe um usuário chamado {args.usuario!r}.")
         return 1
 

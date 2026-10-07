@@ -48,12 +48,14 @@ pelas telas, e rodar `python database.py` **apaga todos os dados**
    - ~~Rate limit no login.~~ Feito: 5 erros seguidos bloqueiam o
      usuário por 15 minutos. ~~Expiração da sessão.~~ Feito: 30 minutos
      sem uso.
-   - HTTPS e cookie `Secure`.
+   - ~~HTTPS e cookie `Secure`.~~ Feito no Render: HTTPS automático e
+     `COOKIE_SEGURO=1` no `render.yaml`.
 4. **Banco de produção e migrações**
-   - Migrar para PostgreSQL (SQLite não aguenta bem vários clientes
-     escrevendo ao mesmo tempo).
-   - Separar o schema dos dados de exemplo e usar migrações versionadas
-     (Alembic) em vez de `DROP TABLE` + `CREATE TABLE`.
+   - ~~Migrar para PostgreSQL~~ Feito: com `DATABASE_URL` o sistema usa o
+     PostgreSQL; sem ela, o SQLite continua para desenvolvimento local.
+   - ~~Separar o schema dos dados de exemplo~~ Feito (`dados_exemplo.sql`).
+     Falta usar migrações versionadas (Alembic) em vez das funções de
+     atualização em `database.py`.
    - Guardar dinheiro como `NUMERIC`/centavos inteiros, não `REAL`
      (ponto flutuante gera erro de arredondamento em comissões).
    - Backups automáticos diários com teste de restauração.
@@ -92,10 +94,12 @@ Concorrentes (Trinks, AppBarber, Booksy, Avec etc.) já oferecem:
 
 ## 🟡 Operação e infraestrutura
 
-- Servidor WSGI de produção (Gunicorn) atrás de Nginx, ou PaaS
-  (Render, Railway, Fly.io); `Dockerfile` e `docker-compose`.
+- ~~Servidor WSGI de produção (Gunicorn), PaaS (Render) e `Dockerfile`.~~
+  Feito: veja *Publicar na internet* no README. Falta `docker-compose`
+  para desenvolvimento.
 - Configuração por variáveis de ambiente (12-factor) e arquivo `.env.example`.
-- CI (GitHub Actions) rodando os testes a cada push.
+- ~~CI (GitHub Actions) rodando os testes a cada push.~~ Feito, no SQLite
+  e no PostgreSQL, e construindo a imagem Docker.
 - Logs estruturados e monitoramento de erros (Sentry), uptime check.
 - Onboarding: cadastro da barbearia → assistente inicial para criar
   serviços e barbeiros → importação de clientes por planilha.

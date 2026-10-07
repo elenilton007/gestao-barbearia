@@ -60,8 +60,8 @@ def criar_barbearia_com_dono(nome, usuario, senha):
     conn = get_connection()
     try:
         barbearia_id = conn.execute(
-            "INSERT INTO barbearias (nome) VALUES (?)", (nome,)
-        ).lastrowid
+            "INSERT INTO barbearias (nome) VALUES (?) RETURNING id", (nome,)
+        ).fetchone()[0]
         conn.execute(
             """
             INSERT INTO usuarios (barbearia_id, usuario, senha_hash, papel)
@@ -170,9 +170,10 @@ def criar_barbeiro(barbearia_id, nome, comissao_percentual=40.0):
         """
         INSERT INTO barbeiros (barbearia_id, nome, comissao_percentual)
         VALUES (?, ?, ?)
+        RETURNING id
         """,
         (barbearia_id, nome, comissao_percentual),
-    ).lastrowid
+    ).fetchone()[0]
     conn.commit()
     conn.close()
     return barbeiro_id
@@ -244,9 +245,10 @@ def criar_servico(barbearia_id, nome, preco, duracao_minutos=30):
         """
         INSERT INTO servicos (barbearia_id, nome, preco, duracao_minutos)
         VALUES (?, ?, ?, ?)
+        RETURNING id
         """,
         (barbearia_id, nome, preco, duracao_minutos),
-    ).lastrowid
+    ).fetchone()[0]
     conn.commit()
     conn.close()
     return servico_id
@@ -367,7 +369,7 @@ def criar_usuario(barbearia_id, usuario, senha, papel, barbeiro_id=None):
     """
     Cadastra um usuário da barbearia com a senha guardada em hash. Usuário
     do papel 'barbeiro' precisa estar vinculado a um barbeiro da mesma
-    barbearia. Nome de usuário repetido levanta sqlite3.IntegrityError.
+    barbearia. Nome de usuário repetido levanta database.IntegrityError.
     """
     usuario = _validar_nome(usuario, "O nome de usuário")
     if papel not in PAPEIS:
