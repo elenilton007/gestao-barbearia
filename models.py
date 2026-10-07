@@ -8,12 +8,20 @@ Cada barbearia só vê os próprios dados: as funções recebem o barbearia_id
 como primeiro argumento e filtram (ou gravam) sempre por ele.
 """
 
+import time
+
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from database import get_connection
 
 PAPEIS = ("dono", "barbeiro")
 TAMANHO_MINIMO_SENHA = 8
+MAXIMO_FALHAS_LOGIN = 5
+TEMPO_BLOQUEIO_LOGIN = 15 * 60  # segundos
+
+
+def _agora():
+    return time.time()
 
 
 def _validar_senha(senha):
@@ -276,3 +284,72 @@ def autenticar(usuario, senha):
     if encontrado and check_password_hash(encontrado["senha_hash"], senha):
         return encontrado
     return None
+
+
+def trocar_senha(usuario_id, senha_atual, nova_senha):
+    """
+    Troca a senha do usuário. Dá ValueError se a senha atual estiver
+    errada ou se a nova for curta demais ou igual à atual.
+    """
+    usuario = buscar_usuario(usuario_id)
+    if usuario is None or not check_password_hash(usuario["senha_hash"], senha_atual):
+        raise ValueError("A senha atual está errada.")
+    _validar_senha(nova_senha)
+    if nova_senha == senha_atual:
+        raise ValueError("A nova senha precisa ser diferente da atual.")
+    conn = get_connection()
+    conn.execute(
+        "UPDATE usuarios SET senha_hash = ? WHERE id = ?",
+        (generate_password_hash(nova_senha), usuario_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+# ---------- LIMITE DE TENTATIVAS DE LOGIN ----------
+
+def segundos_de_bloqueio(usuario):
+    """Quantos segundos faltam para o login voltar a ser aceito (0 = liberado)."""
+    conn = get_connection()
+    linha = conn.execute(
+        "SELECT bloqueado_ate FROM tentativas_login WHERE usuario = ?", (usuario,)
+    ).fetchone()
+    conn.close()
+    if linha is None or linha["bloqueado_ate"] is None:
+        return 0
+    return max(0, linha["bloqueado_ate"] - _agora())
+
+
+def registrar_falha_login(usuario):
+    """
+    Conta um erro de login. No MAXIMO_FALHAS_LOGIN-ésimo erro seguido o
+    usuário fica bloqueado por TEMPO_BLOQUEIO_LOGIN e a contagem recomeça.
+    """
+    conn = get_connection()
+    linha = conn.execute(
+        "SELECT falhas FROM tentativas_login WHERE usuario = ?", (usuario,)
+    ).fetchone()
+    falhas = (linha["falhas"] if linha else 0) + 1
+    bloqueado_ate = None
+    if falhas >= MAXIMO_FALHAS_LOGIN:
+        falhas = 0
+        bloqueado_ate = _agora() + TEMPO_BLOQUEIO_LOGIN
+    conn.execute(
+        """
+        INSERT INTO tentativas_login (usuario, falhas, bloqueado_ate)
+        VALUES (?, ?, ?)
+        ON CONFLICT (usuario) DO UPDATE
+        SET falhas = excluded.falhas, bloqueado_ate = excluded.bloqueado_ate
+        """,
+        (usuario, falhas, bloqueado_ate),
+    )
+    conn.commit()
+    conn.close()
+
+
+def limpar_falhas_login(usuario):
+    """Login certo: zera a contagem de erros do usuário."""
+    conn = get_connection()
+    conn.execute("DELETE FROM tentativas_login WHERE usuario = ?", (usuario,))
+    conn.commit()
+    conn.close()
