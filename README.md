@@ -1,5 +1,7 @@
 # 💈 Sistema de Gestão de Barbearia
 
+[![Testes](https://github.com/elenilton007/gestao-barbearia/actions/workflows/testes.yml/badge.svg)](https://github.com/elenilton007/gestao-barbearia/actions/workflows/testes.yml)
+
 Aplicação web full-stack (Python + Flask + SQL) para gestão de clientes, atendimentos, comissões de barbeiros e relatórios financeiros — inspirada em 21 anos de experiência real administrando uma barbearia.
 
 ## 📋 Sobre o projeto
@@ -170,6 +172,10 @@ Os testes ficam em `tests/` e cobrem:
 | `test_auth.py` | Login/logout, páginas bloqueadas sem login, dono vê tudo, barbeiro vê só as próprias comissões e atendimentos |
 | `test_criar_usuario.py` | Script `criar_usuario.py`: validações e criação da tabela em banco antigo sem perder dados |
 | `test_security.py` | `SECRET_KEY` obrigatória, debug desligado por padrão e proteção CSRF |
+
+O GitHub Actions roda esses testes a cada push e pull request
+(`.github/workflows/testes.yml`). O selo no topo deste README mostra
+o resultado da última execução na `main`.
 
 Cada teste roda em um banco SQLite temporário (veja `tests/conftest.py`),
 então o seu `barbearia.db` nunca é alterado pelos testes.
