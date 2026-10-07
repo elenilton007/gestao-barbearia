@@ -5,10 +5,10 @@ Fixtures compartilhadas: cada teste roda em um banco SQLite temporário,
 inicializado a partir do schema.sql (com os dados de exemplo), sem tocar
 no barbearia.db real.
 
-Com a variável TEST_DATABASE_URL (um PostgreSQL só para testes, que é
-APAGADO a cada teste), os mesmos testes rodam no PostgreSQL. A
-DATABASE_URL do ambiente é sempre ignorada, para os testes nunca
-apagarem o banco de produção.
+Com a variável TEST_DATABASE_URL, os testes rodam no PostgreSQL desse
+endereço. Atenção: o banco é apagado e recriado a cada teste, então use
+um banco só para os testes. A DATABASE_URL do ambiente é sempre ignorada,
+para os testes nunca apagarem o banco de produção.
 
 Usuários criados em todo teste, na barbearia 1 (Barbearia Exemplo):
   dono  / senha-do-dono   (papel dono)

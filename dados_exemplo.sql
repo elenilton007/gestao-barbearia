@@ -1,7 +1,8 @@
 -- dados_exemplo.sql
--- Dados de exemplo para demonstração, inseridos pelo init_db (python
--- database.py) logo depois do schema.sql. O deploy (python database.py
--- --preparar) não usa este arquivo: o banco de produção começa vazio.
+-- Dados de exemplo para demonstração: a Barbearia Exemplo com dois
+-- barbeiros, cinco serviços e três clientes. Usado só por
+-- `python database.py` (que recria o banco do zero); o banco de produção
+-- (`python database.py --preparar`) começa vazio.
 
 INSERT INTO barbearias (nome) VALUES ('Barbearia Exemplo');
 

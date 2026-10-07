@@ -52,8 +52,9 @@ if not _secret_key:
     _secret_key = secrets.token_hex(32)
 app.config["SECRET_KEY"] = _secret_key
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-# Em produção (só HTTPS), o cookie de login não vai por HTTP sem criptografia.
-app.config["SESSION_COOKIE_SECURE"] = os.environ.get("SESSAO_COOKIE_SEGURO") == "1"
+# Em produção (HTTPS), COOKIE_SEGURO=1 faz o navegador só mandar o cookie
+# de login por conexão criptografada.
+app.config["SESSION_COOKIE_SECURE"] = os.environ.get("COOKIE_SEGURO") == "1"
 # Depois desse tempo sem usar o sistema, o login expira.
 app.config["TEMPO_INATIVIDADE"] = 60 * int(
     os.environ.get("SESSAO_INATIVIDADE_MINUTOS", "30")
@@ -514,5 +515,5 @@ def ativar_usuario(usuario_id):
 
 
 if __name__ == "__main__":
-    database.atualizar_banco()  # banco antigo: separa os dados por barbearia
+    database.preparar_banco()  # cria as tabelas ou atualiza um banco antigo
     app.run(debug=DEBUG)

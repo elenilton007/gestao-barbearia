@@ -9,10 +9,8 @@
 -- Barbeiros, serviços e usuários não são apagados, só desativados
 -- (ativo = 0): os atendimentos antigos continuam apontando para eles.
 --
--- Escrito para o SQLite. No PostgreSQL (deploy), database.py traduz o
--- pouco que muda: AUTOINCREMENT vira SERIAL, REAL vira DOUBLE PRECISION e
--- datetime('now') vira a data/hora UTC do PostgreSQL.
---
+-- Escrito para o SQLite; no PostgreSQL o database.py traduz os poucos
+-- trechos diferentes (AUTOINCREMENT, REAL e datetime('now')).
 -- Os dados de exemplo ficam em dados_exemplo.sql.
 
 DROP TABLE IF EXISTS tentativas_login;
