@@ -15,6 +15,7 @@ para os testes que conferem que uma barbearia não vê os dados da outra.
 
 import os
 import sys
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -70,8 +71,13 @@ def outra_barbearia():
 
 
 def logar(client, usuario_id):
+    """Abre a sessão como o app faz no login certo (veja app._iniciar_sessao)."""
+    from app import _marca_da_senha
+
     with client.session_transaction() as sessao:
         sessao["usuario_id"] = usuario_id
+        sessao["senha"] = _marca_da_senha(models.buscar_usuario(usuario_id))
+        sessao["ultimo_acesso"] = time.time()
 
 
 @pytest.fixture

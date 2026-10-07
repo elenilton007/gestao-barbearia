@@ -338,6 +338,19 @@ def test_dono_troca_a_senha_de_um_usuario(client):
     assert models.autenticar("joao", "senha-nova-do-joao") is not None
 
 
+def test_trocar_a_senha_do_barbeiro_encerra_a_sessao_dele(client_anonimo):
+    logar(client_anonimo, ID_USUARIO_JOAO)
+    assert client_anonimo.get("/").status_code == 200
+    models.editar_usuario(BARBEARIA, ID_USUARIO_JOAO, "barbeiro", BARBEIRO_JOAO, "senha-nova-do-joao")
+    assert client_anonimo.get("/").status_code == 302
+
+
+def test_dono_troca_a_propria_senha_pela_tela_e_continua_logado(client):
+    _post(client, f"/usuarios/{ID_DONO}/editar", papel="dono", nova_senha="senha-nova-do-dono")
+    assert models.autenticar("dono", "senha-nova-do-dono") is not None
+    assert client.get("/usuarios").status_code == 200
+
+
 def test_editar_sem_senha_mantem_a_senha(client):
     _post(client, f"/usuarios/{ID_USUARIO_JOAO}/editar",
           papel="barbeiro", barbeiro_id="1", nova_senha="")

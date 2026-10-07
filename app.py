@@ -13,9 +13,12 @@ Papéis de acesso:
 """
 
 import functools
+import hashlib
+import math
 import os
 import secrets
 import sqlite3
+import time
 
 from flask import (
     Flask,
@@ -50,22 +53,54 @@ if not _secret_key:
     _secret_key = secrets.token_hex(32)
 app.config["SECRET_KEY"] = _secret_key
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+# Depois desse tempo sem usar o sistema, o login expira.
+app.config["TEMPO_INATIVIDADE"] = 60 * int(
+    os.environ.get("SESSAO_INATIVIDADE_MINUTOS", "30")
+)
 
 csrf = CSRFProtect(app)
 
 
 # ---------- AUTENTICAÇÃO ----------
 
+def _marca_da_senha(usuario):
+    """
+    Resumo da senha atual guardado na sessão: quando a senha muda, as
+    sessões abertas com a senha antiga (em outros aparelhos) deixam de valer.
+    """
+    return hashlib.sha256(usuario["senha_hash"].encode()).hexdigest()[:16]
+
+
+def _iniciar_sessao(usuario):
+    session.clear()  # evita reaproveitar uma sessão anterior
+    session["usuario_id"] = usuario["id"]
+    session["senha"] = _marca_da_senha(usuario)
+    session["ultimo_acesso"] = time.time()
+
+
 @app.before_request
 def carregar_usuario():
     """Coloca o usuário logado (ou None) em g.usuario, e a barbearia dele em g.barbearia."""
+    g.usuario = g.barbearia = None
     usuario_id = session.get("usuario_id")
-    g.usuario = models.buscar_usuario(usuario_id) if usuario_id else None
-    if g.usuario is not None and not g.usuario["ativo"]:
-        g.usuario = None  # desativado com a sessão aberta: sai na hora
-    g.barbearia = (
-        models.buscar_barbearia(g.usuario["barbearia_id"]) if g.usuario else None
-    )
+    if not usuario_id:
+        return
+    usuario = models.buscar_usuario(usuario_id)
+    if (
+        usuario is None
+        or not usuario["ativo"]  # desativado com a sessão aberta: sai na hora
+        or session.get("senha") != _marca_da_senha(usuario)
+    ):
+        session.clear()
+        return
+    agora = time.time()
+    if agora - session.get("ultimo_acesso", 0) > app.config["TEMPO_INATIVIDADE"]:
+        session.clear()
+        flash("Sua sessão expirou por inatividade. Entre de novo.")
+        return
+    session["ultimo_acesso"] = agora
+    g.usuario = usuario
+    g.barbearia = models.buscar_barbearia(usuario["barbearia_id"])
 
 
 def login_obrigatorio(view):
@@ -102,24 +137,61 @@ def barbeiro_logado():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        usuario = models.autenticar(
-            request.form.get("usuario", ""), request.form.get("senha", "")
-        )
+        nome = request.form.get("usuario", "")
+        # Bloqueado: nem confere a senha, para não dar chance de adivinhar.
+        if models.segundos_de_bloqueio(nome):
+            return _login_bloqueado(nome)
+        usuario = models.autenticar(nome, request.form.get("senha", ""))
         if usuario is None:
+            models.registrar_falha_login(nome)
+            if models.segundos_de_bloqueio(nome):
+                return _login_bloqueado(nome)
             flash("Usuário ou senha inválidos.")
             return render_template("login.html"), 401
-        session.clear()  # evita reaproveitar uma sessão anterior
-        session["usuario_id"] = usuario["id"]
+        models.limpar_falhas_login(nome)
+        _iniciar_sessao(usuario)
         return redirect(url_for("dashboard"))
     if g.usuario is not None:
         return redirect(url_for("dashboard"))
     return render_template("login.html")
 
 
+def _login_bloqueado(nome):
+    minutos = math.ceil(models.segundos_de_bloqueio(nome) / 60)
+    flash(
+        f"Muitas tentativas erradas. Tente de novo em {minutos} "
+        f"minuto{'s' if minutos > 1 else ''}."
+    )
+    return render_template("login.html"), 429
+
+
 @app.route("/logout", methods=["POST"])
 def logout():
     session.clear()
     return redirect(url_for("login"))
+
+
+@app.route("/conta/senha", methods=["GET", "POST"])
+@somente_dono
+def trocar_senha():
+    """Tela para o dono trocar a própria senha."""
+    if request.method == "POST":
+        nova_senha = request.form.get("nova_senha", "")
+        if nova_senha != request.form.get("confirmacao", ""):
+            flash("A confirmação não é igual à nova senha.")
+            return render_template("trocar_senha.html"), 400
+        try:
+            models.trocar_senha(
+                g.usuario["id"], request.form.get("senha_atual", ""), nova_senha
+            )
+        except ValueError as erro:
+            flash(str(erro))
+            return render_template("trocar_senha.html"), 400
+        # Continua logado aqui; as sessões de outros aparelhos são encerradas.
+        _iniciar_sessao(models.buscar_usuario(g.usuario["id"]))
+        flash("Senha alterada.")
+        return redirect(url_for("dashboard"))
+    return render_template("trocar_senha.html")
 
 
 # ---------- PÁGINAS ----------
@@ -402,16 +474,20 @@ def editar_usuario(usuario_id):
         try:
             if usuario_id == g.usuario["id"] and papel != "dono":
                 raise ValueError("Você não pode tirar o seu próprio papel de dono.")
+            nova_senha = request.form.get("nova_senha", "")
             models.editar_usuario(
                 barbearia_id,
                 usuario_id,
                 papel,
                 request.form.get("barbeiro_id") or None,
-                request.form.get("nova_senha", ""),
+                nova_senha,
             )
         except ValueError as erro:
             flash(str(erro))
             return redirect(url_for("editar_usuario", usuario_id=usuario_id))
+        if nova_senha and usuario_id == g.usuario["id"]:
+            # Como em trocar_senha: continua logado aqui, os outros aparelhos saem.
+            _iniciar_sessao(models.buscar_usuario(usuario_id))
         return redirect(url_for("usuarios"))
     return render_template(
         "editar_usuario.html",
