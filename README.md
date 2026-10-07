@@ -25,7 +25,7 @@ Depois de duas décadas gerindo um negócio próprio (fluxo de caixa, comissão 
 | `criar_usuario.py` | Linha de comando para cadastrar usuários (dono ou barbeiro) e barbearias novas |
 | `reports.py` | Consultas SQL avançadas: faturamento, comissões, ranking de serviços/clientes, por barbearia |
 | `app.py` | Aplicação web Flask (rotas, páginas, login e permissões) |
-| `templates/` | Páginas HTML (login, dashboard, clientes, atendimentos, relatórios) |
+| `templates/` | Páginas HTML (login, troca de senha, dashboard, clientes, atendimentos, relatórios) |
 | `static/style.css` | Estilo visual da aplicação |
 | `tests/` | Testes automatizados (models, relatórios e rotas Flask) |
 
@@ -40,6 +40,10 @@ Depois de duas décadas gerindo um negócio próprio (fluxo de caixa, comissão 
   - **dono** — acesso total à própria barbearia: faturamento, comissões de todos, relatórios
   - **barbeiro** — vê só os próprios atendimentos e a própria comissão;
     registra atendimentos apenas em seu nome e não acessa os relatórios
+- **Login protegido**: depois de 5 senhas erradas seguidas, o usuário fica
+  bloqueado por 15 minutos (até com a senha certa). A sessão expira depois
+  de 30 minutos sem uso e pede login de novo. O dono troca a própria senha
+  em **Trocar senha**, no menu
 - **Dashboard gerencial**: faturamento do mês, ticket médio, top serviços, top clientes, comissões
 - **Cadastro de clientes**
 - **Registro de atendimentos**: vincula cliente, barbeiro, serviço e forma de pagamento
@@ -168,6 +172,7 @@ criado no passo 5.
 | `SECRET_KEY` | Assina a sessão de login e os tokens CSRF dos formulários. **Obrigatória** fora do modo debug — o app não inicia sem ela. |
 | `FLASK_DEBUG` | `1` liga o modo debug. Desligado por padrão. |
 | `BARBEARIA_DB` | Caminho do arquivo do banco SQLite (padrão: `barbearia.db`). |
+| `SESSAO_INATIVIDADE_MINUTOS` | Minutos sem uso até a sessão expirar (padrão: `30`). |
 
 Para gerar uma `SECRET_KEY` forte:
 
@@ -197,6 +202,7 @@ Os testes ficam em `tests/` e cobrem:
 | `test_auth.py` | Login/logout, páginas bloqueadas sem login, dono vê tudo, barbeiro vê só as próprias comissões e atendimentos |
 | `test_barbearias.py` | Uma barbearia não vê nem altera os dados da outra (listas, relatórios, páginas e formulários) e atualização de banco antigo |
 | `test_criar_usuario.py` | Script `criar_usuario.py`: validações, barbearia nova ou informada e criação da tabela em banco antigo sem perder dados |
+| `test_login_seguranca.py` | Bloqueio após 5 senhas erradas, troca de senha pelo dono e expiração da sessão por inatividade |
 | `test_security.py` | `SECRET_KEY` obrigatória, debug desligado por padrão e proteção CSRF |
 
 O GitHub Actions roda esses testes a cada push e pull request

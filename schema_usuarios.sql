@@ -23,3 +23,14 @@ CREATE TABLE IF NOT EXISTS usuarios (
     FOREIGN KEY (barbeiro_id) REFERENCES barbeiros (id),
     CHECK (papel = 'dono' OR barbeiro_id IS NOT NULL)
 );
+
+-- Erros de senha seguidos por nome de usuário, para o limite de tentativas
+-- do login (models.registrar_falha_de_login). Nomes que não existem também
+-- são contados, para o bloqueio não revelar quais usuários existem.
+-- Os horários são segundos desde 1970 (time.time()).
+CREATE TABLE IF NOT EXISTS tentativas_login (
+    usuario TEXT PRIMARY KEY,
+    falhas INTEGER NOT NULL,
+    ultima_falha REAL NOT NULL,
+    bloqueado_ate REAL
+);

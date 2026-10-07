@@ -6,14 +6,20 @@ login, dashboard, clientes, atendimentos e relatórios financeiros.
 
 Cada usuário pertence a uma barbearia e só vê os dados dela.
 
+Segurança do login:
+  - 5 senhas erradas seguidas bloqueiam o usuário por 15 minutos
+  - a sessão expira depois de 30 minutos sem uso (SESSAO_INATIVIDADE_MINUTOS)
+
 Papéis de acesso:
   dono     -> vê e faz tudo na própria barbearia
   barbeiro -> vê só os próprios atendimentos e comissões
 """
 
 import functools
+import math
 import os
 import secrets
+import time
 
 from flask import (
     Flask,
@@ -48,16 +54,37 @@ if not _secret_key:
     _secret_key = secrets.token_hex(32)
 app.config["SECRET_KEY"] = _secret_key
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+# Minutos sem nenhuma requisição até a sessão expirar e pedir login de novo.
+app.config["SESSAO_INATIVIDADE_MINUTOS"] = int(
+    os.environ.get("SESSAO_INATIVIDADE_MINUTOS", "30")
+)
 
 csrf = CSRFProtect(app)
 
 
 # ---------- AUTENTICAÇÃO ----------
 
+def _sessao_expirada():
+    """
+    True se a sessão ficou parada mais que o limite. Sessão sem a hora do
+    último acesso (criada antes desta regra) também conta como expirada.
+    """
+    ultimo_acesso = session.get("ultimo_acesso")
+    limite = app.config["SESSAO_INATIVIDADE_MINUTOS"] * 60
+    return ultimo_acesso is None or time.time() - ultimo_acesso > limite
+
+
 @app.before_request
 def carregar_usuario():
     """Coloca o usuário logado (ou None) em g.usuario, e a barbearia dele em g.barbearia."""
     usuario_id = session.get("usuario_id")
+    if usuario_id is not None:
+        if _sessao_expirada():
+            session.clear()
+            flash("Sua sessão expirou por inatividade. Entre de novo.")
+            usuario_id = None
+        else:
+            session["ultimo_acesso"] = int(time.time())
     g.usuario = models.buscar_usuario(usuario_id) if usuario_id else None
     g.barbearia = (
         models.buscar_barbearia(g.usuario["barbearia_id"]) if g.usuario else None
@@ -95,17 +122,33 @@ def barbeiro_logado():
     return None
 
 
+def _login_bloqueado(segundos):
+    minutos = max(1, math.ceil(segundos / 60))
+    flash(
+        "Muitas tentativas com a senha errada. "
+        f"Tente de novo em {minutos} minuto{'s' if minutos > 1 else ''}."
+    )
+    return render_template("login.html"), 429
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        usuario = models.autenticar(
-            request.form.get("usuario", ""), request.form.get("senha", "")
-        )
+        nome = request.form.get("usuario", "")
+        # Bloqueado: recusa sem nem conferir a senha.
+        espera = models.segundos_de_bloqueio(nome)
+        if espera:
+            return _login_bloqueado(espera)
+        usuario = models.autenticar(nome, request.form.get("senha", ""))
         if usuario is None:
+            if models.registrar_falha_de_login(nome):
+                return _login_bloqueado(models.segundos_de_bloqueio(nome))
             flash("Usuário ou senha inválidos.")
             return render_template("login.html"), 401
+        models.limpar_falhas_de_login(nome)
         session.clear()  # evita reaproveitar uma sessão anterior
         session["usuario_id"] = usuario["id"]
+        session["ultimo_acesso"] = int(time.time())
         return redirect(url_for("dashboard"))
     if g.usuario is not None:
         return redirect(url_for("dashboard"))
@@ -116,6 +159,27 @@ def login():
 def logout():
     session.clear()
     return redirect(url_for("login"))
+
+
+@app.route("/senha", methods=["GET", "POST"])
+@somente_dono
+def trocar_senha():
+    """Tela para o dono trocar a própria senha."""
+    if request.method == "POST":
+        nova_senha = request.form.get("nova_senha", "")
+        if nova_senha != request.form.get("confirmacao", ""):
+            flash("A confirmação não é igual à nova senha.")
+            return render_template("senha.html"), 400
+        try:
+            models.trocar_senha(
+                g.usuario["id"], request.form.get("senha_atual", ""), nova_senha
+            )
+        except ValueError as erro:
+            flash(str(erro))
+            return render_template("senha.html"), 400
+        flash("Senha alterada.")
+        return redirect(url_for("dashboard"))
+    return render_template("senha.html")
 
 
 # ---------- PÁGINAS ----------

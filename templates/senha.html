@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>🔑 Trocar senha</h2>
+
+<div class="card">
+    <form method="POST" action="{{ url_for('trocar_senha') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="senha_atual">Senha atual:</label>
+        <input type="password" id="senha_atual" name="senha_atual" autocomplete="current-password" required autofocus>
+
+        <label for="nova_senha">Nova senha (mínimo de 8 caracteres):</label>
+        <input type="password" id="nova_senha" name="nova_senha" autocomplete="new-password" minlength="8" required>
+
+        <label for="confirmacao">Repita a nova senha:</label>
+        <input type="password" id="confirmacao" name="confirmacao" autocomplete="new-password" minlength="8" required>
+
+        <button type="submit">Trocar senha</button>
+    </form>
+</div>
+{% endblock %}
