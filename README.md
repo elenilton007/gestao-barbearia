@@ -30,7 +30,7 @@ Depois de duas décadas gerindo um negócio próprio (fluxo de caixa, comissão 
 | `static/style.css` | Estilo visual da aplicação |
 | `tests/` | Testes automatizados (models, relatórios e rotas Flask) |
 | `Dockerfile` | Imagem de produção: cria as tabelas e sobe o Gunicorn |
-| `render.yaml` | Blueprint do Render: banco PostgreSQL + site, de uma vez |
+| `render.yaml` | Blueprint do Render: site no plano gratuito (Gunicorn), com o banco PostgreSQL do Neon |
 
 ## 📊 Funcionalidades
 
@@ -211,82 +211,102 @@ python -c "import secrets; print(secrets.token_hex(32))"
 
 Os formulários são protegidos contra CSRF com o Flask-WTF.
 
-## 🌐 Publicar na internet (Render)
+## 🌐 Publicar na internet de graça (Render + Neon)
 
 Até aqui o sistema só roda no seu computador (`127.0.0.1` quer dizer
 "esta máquina"). Para o dono da barbearia e os barbeiros entrarem pelo
 navegador de qualquer lugar — celular, computador do balcão — o sistema
-precisa estar num servidor na internet. Este passo a passo usa o
-[Render](https://render.com), que tem plano gratuito e lê o `Dockerfile`
-e o `render.yaml` deste repositório.
+precisa estar num servidor na internet. Este passo a passo usa só planos
+**gratuitos**:
 
-Em produção o sistema roda com:
+- **[Render](https://render.com)** (plano Free): roda o site com o
+  **Gunicorn**, a partir do `Dockerfile` e do `render.yaml` deste
+  repositório, com **HTTPS** automático e o cookie de login marcado como
+  seguro (`COOKIE_SEGURO=1`);
+- **[Neon](https://neon.tech)** (plano Free): guarda os dados num
+  **PostgreSQL** (variável `DATABASE_URL`). O SQLite do Render seria
+  apagado a cada nova versão publicada, e o banco gratuito do próprio
+  Render expira depois de um tempo; o do Neon não expira.
 
-- **Gunicorn** no lugar do servidor de desenvolvimento do Flask;
-- **PostgreSQL** no lugar do SQLite (variável `DATABASE_URL`). O SQLite
-  do Render seria apagado a cada nova versão publicada;
-- **HTTPS** automático do Render, com o cookie de login marcado como
-  seguro (`COOKIE_SEGURO=1`).
+No seu computador nada muda: sem `DATABASE_URL`, o sistema continua
+usando o SQLite (`barbearia.db`).
 
-### 1. Criar o banco e o site
+### 1. Criar o banco no Neon
+
+1. Crie uma conta em <https://neon.tech> (dá para entrar com o GitHub).
+2. Crie um projeto (por exemplo `gestao-barbearia`). Na região, escolha a
+   mais perto de onde o site vai ficar no Render — por exemplo **AWS US
+   East (Ohio)** com o Render em **Ohio**.
+3. No painel do projeto, clique em **Connect** e copie a *connection
+   string*. Ela parece com:
+
+   ```
+   postgresql://usuario:senha@ep-xxxx-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require
+   ```
+
+   Prefira a versão com **pooling** (o endereço tem `-pooler`). Essa linha
+   é a sua `DATABASE_URL`: ela contém a senha do banco, então **nunca** a
+   coloque no repositório.
+
+As tabelas não precisam ser criadas à mão: o site cria quando sobe.
+
+### 2. Criar o site no Render
 
 1. Crie uma conta em <https://render.com> entrando com o GitHub e
    autorize o acesso ao repositório `gestao-barbearia`.
-2. No painel, clique em **New → Blueprint**, escolha o repositório e
-   confirme em **Apply**. O Render lê o `render.yaml` e cria:
-   - o banco **gestao-barbearia-db** (PostgreSQL);
-   - o site **gestao-barbearia**, construído a partir do `Dockerfile`,
-     com a `DATABASE_URL` do banco e uma `SECRET_KEY` aleatória já
-     configuradas.
-3. Espere o deploy terminar (alguns minutos). Ao iniciar, o contêiner
+2. No painel, clique em **New → Blueprint** e escolha o repositório. O
+   Render lê o `render.yaml` e monta o site **gestao-barbearia** no plano
+   **Free**, a partir do `Dockerfile`, com uma `SECRET_KEY` aleatória e
+   `COOKIE_SEGURO=1`.
+3. O Render pede o valor de **`DATABASE_URL`**: cole a connection string
+   do Neon e confirme em **Apply**.
+4. Espere o deploy terminar (alguns minutos). Ao iniciar, o contêiner
    roda `python database.py --preparar`, que cria as tabelas vazias (sem
-   os dados de exemplo) e nunca apaga dados — pode rodar a cada deploy.
-4. O endereço do site aparece no topo da página do serviço, algo como
+   os dados de exemplo) e nunca apaga dados — roda a cada deploy — e
+   depois sobe o Gunicorn.
+5. O endereço do site aparece no topo da página do serviço, algo como
    **https://gestao-barbearia.onrender.com**. A tela de login já abre,
    mas ainda não existe nenhum usuário.
 
 <details>
-<summary>Prefere criar tudo à mão, sem o Blueprint?</summary>
+<summary>Prefere criar o site à mão, sem o Blueprint?</summary>
 
-1. **New → Postgres**: dê um nome, escolha a região e o plano, e crie.
-   Copie a **Internal Database URL**.
-2. **New → Web Service**: escolha o repositório; o Render detecta o
-   `Dockerfile` (*Language: Docker*). Na região, use a mesma do banco.
-3. Em **Environment Variables**, adicione:
-   - `DATABASE_URL` = a *Internal Database URL* copiada;
+1. **New → Web Service**: escolha o repositório; o Render detecta o
+   `Dockerfile` (*Language: Docker*). Em **Instance Type**, escolha
+   **Free**.
+2. Em **Environment Variables**, adicione:
+   - `DATABASE_URL` = a connection string do Neon;
    - `SECRET_KEY` = o resultado de
      `python -c "import secrets; print(secrets.token_hex(32))"`;
    - `COOKIE_SEGURO` = `1`.
-4. Em **Health Check Path**, coloque `/login` e crie o serviço.
+3. Em **Health Check Path**, coloque `/login` e crie o serviço.
 
 </details>
 
-### 2. Criar o primeiro dono
+### 3. Criar o primeiro dono
 
-O usuário dono é criado do seu computador, conectando direto no banco do
-Render (funciona no plano gratuito, que não tem terminal no servidor):
+O plano gratuito do Render não tem terminal no servidor. O usuário dono
+é criado do seu computador, conectando direto no banco do Neon:
 
-1. No Render, abra o banco **gestao-barbearia-db** → **Connect** e copie a
-   **External Database URL**.
-2. No seu computador, dentro da pasta do projeto e com o ambiente virtual
-   ativado (passos 2 e 3 da instalação), rode:
+1. Dentro da pasta do projeto e com o ambiente virtual ativado (passos 2
+   e 3 da instalação), rode, colando a connection string do Neon:
 
    Linux/macOS:
 
    ```bash
-   DATABASE_URL="cole-aqui-a-External-Database-URL" \
+   DATABASE_URL="cole-aqui-a-connection-string-do-Neon" \
      python criar_usuario.py dono elenilton --nova-barbearia "Nome da Barbearia"
    ```
 
    Windows (PowerShell):
 
    ```powershell
-   $env:DATABASE_URL="cole-aqui-a-External-Database-URL"
+   $env:DATABASE_URL="cole-aqui-a-connection-string-do-Neon"
    python criar_usuario.py dono elenilton --nova-barbearia "Nome da Barbearia"
    Remove-Item Env:DATABASE_URL
    ```
 
-3. Abra o endereço do site, entre com esse usuário e cadastre os
+2. Abra o endereço do site, entre com esse usuário e cadastre os
    barbeiros, os serviços e os usuários dos barbeiros pelas telas.
 
 > ⚠️ Com a `DATABASE_URL` definida, **não** rode `python database.py`
@@ -294,7 +314,7 @@ Render (funciona no plano gratuito, que não tem terminal no servidor):
 > recusa a rodar sem `--apagar-tudo`. Para só criar as tabelas, use
 > `python database.py --preparar`.
 
-### 3. Passar o endereço para a barbearia
+### 4. Passar o endereço para a barbearia
 
 Mande o link (por exemplo `https://gestao-barbearia.onrender.com`) para o
 dono e os barbeiros. Cada um entra com o próprio usuário e senha, de
@@ -306,14 +326,23 @@ Para usar um endereço próprio (como `sistema.suabarbearia.com.br`), vá em
 Render emite o certificado HTTPS sozinho.
 
 Toda mudança mesclada na `main` é publicada automaticamente
-(**Auto-Deploy**); os dados ficam no PostgreSQL e não se perdem.
+(**Auto-Deploy**); os dados ficam no Neon e não se perdem.
 
-> 💡 **Plano gratuito do Render**: o site "dorme" após uns 15 minutos sem
-> acesso e leva cerca de um minuto para acordar no próximo acesso, e o
-> banco gratuito expira depois de um tempo (veja os prazos atuais na
-> página de preços do Render). Para uma barbearia de verdade, use os
-> planos pagos do site e do banco, que também têm backup automático —
-> basta trocar o `plan` no `render.yaml` ou mudar o plano no painel.
+> 💡 **Limites do plano gratuito** (confira os valores atuais nos sites):
+> o site do Render "dorme" após uns 15 minutos sem acesso e leva cerca de
+> um minuto para acordar no próximo acesso. O Neon também pausa o banco
+> sem uso (acorda sozinho em segundos) e tem limite de armazenamento —
+> sobra para começar. Quando houver barbearias pagando, passe para os
+> planos pagos, que não dormem e têm mais backup.
+
+### Problemas comuns
+
+| Sintoma | O que fazer |
+|---|---|
+| Deploy falha com erro de conexão ao banco | Confira a `DATABASE_URL` em **Environment** no Render: é a connection string do Neon, com `?sslmode=require` no fim. |
+| Primeiro acesso demora | Normal no plano gratuito: o site estava dormindo. |
+| Todo mundo foi deslogado | A `SECRET_KEY` mudou. Não a troque à toa no painel do Render. |
+| `criar_usuario.py` diz que o usuário já existe | O nome de usuário é único no sistema todo; escolha outro. |
 
 ### Rodar a imagem Docker no seu computador
 
@@ -371,7 +400,7 @@ TEST_DATABASE_URL=postgresql://usuario:senha@localhost:5432/barbearia_teste pyte
 - Flask
 - SQLite no desenvolvimento e PostgreSQL em produção (SQL puro, sem ORM —
   para deixar as queries explícitas)
-- Gunicorn, Docker e Render (deploy)
+- Gunicorn, Docker, Render e Neon (deploy gratuito)
 - Jinja2 (templates HTML)
 - Pytest (testes automatizados)
 

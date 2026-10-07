@@ -317,6 +317,18 @@ def criar_atendimento(barbearia_id, cliente_id, barbeiro_id, servico_id, valor_c
     O percentual de comissão do barbeiro é copiado para o atendimento, para
     que mudar a comissão depois não altere os atendimentos já registrados.
     """
+    # Os valores chegam do formulário como texto. O SQLite guardaria um
+    # texto inválido como está; o PostgreSQL daria erro. Confere antes.
+    try:
+        cliente_id, barbeiro_id, servico_id = (
+            int(registro_id) for registro_id in (cliente_id, barbeiro_id, servico_id)
+        )
+    except (TypeError, ValueError):
+        raise ValueError("Cliente, barbeiro e serviço inválidos.") from None
+    valor_cobrado = _numero(
+        valor_cobrado, "O valor cobrado precisa ser um número maior ou igual a zero.", 0
+    )
+
     conn = get_connection()
     try:
         for tabela, nome, registro_id in (
@@ -334,13 +346,15 @@ def criar_atendimento(barbearia_id, cliente_id, barbeiro_id, servico_id, valor_c
                 )
             if "ativo" in encontrado.keys() and not encontrado["ativo"]:
                 raise ValueError(f"{nome} {registro_id} está desativado.")
+        # VALUES (e não INSERT ... SELECT ?, ...): no PostgreSQL, parâmetros
+        # na lista do SELECT viram texto e não entram em colunas numéricas.
         conn.execute(
             """
             INSERT INTO atendimentos
                 (barbearia_id, cliente_id, barbeiro_id, servico_id,
                  valor_cobrado, forma_pagamento, comissao_percentual)
-            SELECT ?, ?, ?, ?, ?, ?, comissao_percentual
-            FROM barbeiros WHERE id = ?
+            VALUES (?, ?, ?, ?, ?, ?,
+                    (SELECT comissao_percentual FROM barbeiros WHERE id = ?))
             """,
             (barbearia_id, cliente_id, barbeiro_id, servico_id,
              valor_cobrado, forma_pagamento, barbeiro_id),
@@ -360,9 +374,13 @@ def _validar_papel(barbearia_id, papel, barbeiro_id):
         return None
     if barbeiro_id in (None, ""):
         raise ValueError("Usuário barbeiro precisa de um barbeiro_id.")
+    try:
+        barbeiro_id = int(barbeiro_id)
+    except (TypeError, ValueError):
+        raise ValueError(f"Barbeiro {barbeiro_id} não existe nesta barbearia.") from None
     if buscar_barbeiro(barbearia_id, barbeiro_id) is None:
         raise ValueError(f"Barbeiro {barbeiro_id} não existe nesta barbearia.")
-    return int(barbeiro_id)
+    return barbeiro_id
 
 
 def criar_usuario(barbearia_id, usuario, senha, papel, barbeiro_id=None):
