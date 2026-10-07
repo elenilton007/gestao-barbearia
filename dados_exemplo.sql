@@ -1,7 +1,8 @@
 -- dados_exemplo.sql
--- Dados de exemplo (seed) para demonstração: a Barbearia Exemplo, com
--- barbeiros, serviços e clientes. Aplicados só por python database.py
--- (init_db), nunca no deploy (preparar_banco.py).
+-- Dados de exemplo para demonstração: a Barbearia Exemplo com dois
+-- barbeiros, cinco serviços e três clientes. Usado só por
+-- `python database.py` (que recria o banco do zero); o banco de produção
+-- (`python database.py --preparar`) começa vazio.
 
 INSERT INTO barbearias (nome) VALUES ('Barbearia Exemplo');
 

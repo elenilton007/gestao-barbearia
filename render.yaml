@@ -1,30 +1,27 @@
-# render.yaml — Blueprint do Render (https://render.com/docs/blueprint-spec)
+# Blueprint do Render: cria o site (web service no plano Free, a partir do
+# Dockerfile, com o Gunicorn). O banco é um PostgreSQL gratuito do Neon,
+# informado na variável DATABASE_URL. Veja o passo a passo no README.
 #
-# Web service no plano Free com Gunicorn. O banco é um PostgreSQL do Neon
-# (plano gratuito), informado na variável DATABASE_URL. Passo a passo no
-# README, seção "Deploy gratuito (Render + Neon)".
+# O PostgreSQL gratuito do próprio Render expira depois de um tempo; o do
+# Neon não expira, por isso o banco fica no Neon.
 services:
   - type: web
     name: gestao-barbearia
-    runtime: python
+    runtime: docker
     plan: free
     branch: main
     autoDeploy: true
-    buildCommand: pip install -r requirements.txt
-    # preparar_banco.py cria as tabelas no primeiro deploy e só atualiza
-    # depois (nunca apaga dados). Em seguida o Gunicorn sobe o app Flask.
-    startCommand: python preparar_banco.py && gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 60
     healthCheckPath: /login
     envVars:
-      - key: PYTHON_VERSION
-        value: "3.13.5"
-      - key: SECRET_KEY
-        generateValue: true  # o Render gera uma chave aleatória
       - key: DATABASE_URL
         sync: false  # o Render pede no painel: cole a connection string do Neon
+      - key: SECRET_KEY
+        generateValue: true  # o Render gera uma chave aleatória
+      - key: COOKIE_SEGURO
+        value: "1"
       - key: DONO_USUARIO
-        sync: false  # nome de login do primeiro dono
+        sync: false  # login do primeiro dono (só usado com o banco sem usuários)
       - key: DONO_SENHA
         sync: false  # senha do primeiro dono (mínimo de 8 caracteres)
       - key: BARBEARIA_NOME
-        sync: false  # nome da barbearia (opcional)
+        sync: false  # nome da barbearia do primeiro dono (opcional)
