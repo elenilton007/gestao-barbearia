@@ -197,9 +197,9 @@ def test_criar_usuario_valida_dados(papel, senha, barbeiro_id, mensagem):
 
 
 def test_usuario_repetido_e_recusado():
-    import sqlite3
+    import database
 
-    with pytest.raises(sqlite3.IntegrityError):
+    with pytest.raises(database.IntegrityError):
         models.criar_usuario(BARBEARIA, "dono", "outra-senha", "dono")
 
 

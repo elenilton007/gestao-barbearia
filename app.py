@@ -17,7 +17,6 @@ import hashlib
 import math
 import os
 import secrets
-import sqlite3
 import time
 
 from flask import (
@@ -53,6 +52,8 @@ if not _secret_key:
     _secret_key = secrets.token_hex(32)
 app.config["SECRET_KEY"] = _secret_key
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+# Em produção (só HTTPS), o cookie de login não vai por HTTP sem criptografia.
+app.config["SESSION_COOKIE_SECURE"] = os.environ.get("SESSAO_COOKIE_SEGURO") == "1"
 # Depois desse tempo sem usar o sistema, o login expira.
 app.config["TEMPO_INATIVIDADE"] = 60 * int(
     os.environ.get("SESSAO_INATIVIDADE_MINUTOS", "30")
@@ -459,7 +460,7 @@ def novo_usuario():
         )
     except ValueError as erro:
         flash(str(erro))
-    except sqlite3.IntegrityError:
+    except database.IntegrityError:
         flash(f"Já existe um usuário chamado {usuario.strip()!r}.")
     return redirect(url_for("usuarios"))
 

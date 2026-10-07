@@ -5,6 +5,11 @@ Fixtures compartilhadas: cada teste roda em um banco SQLite temporário,
 inicializado a partir do schema.sql (com os dados de exemplo), sem tocar
 no barbearia.db real.
 
+Com a variável TEST_DATABASE_URL (um PostgreSQL só para testes, que é
+APAGADO a cada teste), os mesmos testes rodam no PostgreSQL. A
+DATABASE_URL do ambiente é sempre ignorada, para os testes nunca
+apagarem o banco de produção.
+
 Usuários criados em todo teste, na barbearia 1 (Barbearia Exemplo):
   dono  / senha-do-dono   (papel dono)
   joao  / senha-do-joao   (papel barbeiro, barbeiro_id 2 = João Pereira)
@@ -38,6 +43,9 @@ BARBEIRO_JOAO = 2
 def banco_temporario(tmp_path, monkeypatch):
     """Aponta a aplicação para um banco novo a cada teste."""
     monkeypatch.setenv("BARBEARIA_DB", str(tmp_path / "teste.db"))
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    if os.environ.get("TEST_DATABASE_URL"):
+        monkeypatch.setenv("DATABASE_URL", os.environ["TEST_DATABASE_URL"])
     database.init_db()
     models.criar_usuario(BARBEARIA, "dono", "senha-do-dono", "dono")
     models.criar_usuario(BARBEARIA, "joao", "senha-do-joao", "barbeiro", BARBEIRO_JOAO)

@@ -1,0 +1,26 @@
+# render.yaml — Blueprint do Render (https://render.com/docs/blueprint-spec)
+#
+# Web service no plano gratuito (Free), com o banco PostgreSQL no Neon
+# (também gratuito). Passo a passo no README, seção "Deploy gratuito".
+services:
+  - type: web
+    name: gestao-barbearia
+    runtime: python
+    plan: free
+    # A versão do Python vem do arquivo .python-version.
+    buildCommand: pip install -r requirements.txt
+    # Cria as tabelas se o banco estiver vazio (ou atualiza um banco antigo,
+    # sem apagar nada) e sobe o Gunicorn na porta que o Render escolhe.
+    startCommand: python database.py --preparar && gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 60
+    healthCheckPath: /login
+    envVars:
+      # Gerada pelo Render na criação do serviço; assina a sessão e o CSRF.
+      - key: SECRET_KEY
+        generateValue: true
+      # Endereço do PostgreSQL do Neon. sync: false = o Render pede o valor
+      # no painel (ele não fica no repositório).
+      - key: DATABASE_URL
+        sync: false
+      # O Render serve só por HTTPS: o cookie de login só vai por HTTPS.
+      - key: SESSAO_COOKIE_SEGURO
+        value: "1"

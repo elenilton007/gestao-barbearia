@@ -1,27 +1,162 @@
 """
 database.py
 
-Módulo responsável pela conexão com o banco de dados SQLite do
-Sistema de Gestão de Barbearia.
+Módulo responsável pela conexão com o banco de dados do Sistema de
+Gestão de Barbearia.
+
+Dois bancos são aceitos, com o mesmo SQL:
+  - SQLite (padrão, para desenvolvimento local): arquivo barbearia.db, ou
+    o caminho da variável BARBEARIA_DB;
+  - PostgreSQL (deploy, por exemplo no Neon): usado quando a variável
+    DATABASE_URL está definida (postgresql://usuario:senha@host/banco).
+
+O resto do sistema escreve SQL do SQLite (parâmetros com ?) e lê as
+linhas pelo nome da coluna; no PostgreSQL, _ConexaoPostgres faz as
+adaptações (veja _sql_postgres).
 """
 
-import sqlite3
 import os
+import re
+import sqlite3
+import sys
 
 DATABASE_PATH = os.path.join(os.path.dirname(__file__), "barbearia.db")
 
+try:
+    import psycopg
+except ImportError:  # só é preciso com DATABASE_URL
+    psycopg = None
+
+# Nome de usuário repetido e outras regras do banco violadas, nos dois
+# bancos. Use em except e em pytest.raises.
+IntegrityError = (sqlite3.IntegrityError,)
+if psycopg is not None:
+    IntegrityError += (psycopg.IntegrityError,)
+
 
 def get_database_path():
-    """Caminho do banco: variável de ambiente BARBEARIA_DB ou o padrão."""
+    """Caminho do banco SQLite: variável de ambiente BARBEARIA_DB ou o padrão."""
     return os.environ.get("BARBEARIA_DB", DATABASE_PATH)
 
 
+def get_database_url():
+    """Endereço do PostgreSQL (variável DATABASE_URL), ou None para usar o SQLite."""
+    return os.environ.get("DATABASE_URL") or None
+
+
+def usando_postgres():
+    return get_database_url() is not None
+
+
 def get_connection():
-    """Cria e retorna uma conexão com o banco de dados SQLite."""
+    """
+    Cria e retorna uma conexão com o banco: PostgreSQL se DATABASE_URL
+    estiver definida, senão SQLite.
+    """
+    url = get_database_url()
+    if url is not None:
+        return _ConexaoPostgres(url)
     conn = sqlite3.connect(get_database_path())
     conn.row_factory = sqlite3.Row  # permite acessar colunas pelo nome
     return conn
 
+
+# ---------- POSTGRESQL ----------
+
+# O que muda do SQL do SQLite para o do PostgreSQL. REAL no PostgreSQL tem
+# só 6 dígitos de precisão (123.45 viraria 123.449997), por isso vira
+# DOUBLE PRECISION, igual ao REAL do SQLite.
+_TRADUCOES_POSTGRES = (
+    (re.compile(r"INTEGER PRIMARY KEY AUTOINCREMENT", re.I), "SERIAL PRIMARY KEY"),
+    (re.compile(r"\bREAL\b", re.I), "DOUBLE PRECISION"),
+    (
+        re.compile(r"datetime\('now'\)", re.I),
+        "to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')",
+    ),
+)
+
+
+def _sql_postgres(sql, com_parametros):
+    for padrao, troca in _TRADUCOES_POSTGRES:
+        sql = padrao.sub(troca, sql)
+    if com_parametros:
+        # O psycopg usa %s nos parâmetros; um % de verdade vira %%.
+        sql = sql.replace("%", "%%").replace("?", "%s")
+    return sql
+
+
+class Linha(dict):
+    """
+    Linha do PostgreSQL que se comporta como sqlite3.Row: linha["nome"],
+    linha[0] e linha.keys().
+    """
+
+    def __getitem__(self, chave):
+        if isinstance(chave, int):
+            return list(self.values())[chave]
+        return super().__getitem__(chave)
+
+
+def _fabrica_de_linhas(cursor):
+    if cursor.description is None:
+        return None
+    nomes = [coluna.name for coluna in cursor.description]
+    return lambda valores: Linha(zip(nomes, valores))
+
+
+class _CursorPostgres:
+    def __init__(self, cursor, lastrowid=None):
+        self._cursor = cursor
+        self.lastrowid = lastrowid
+
+    def fetchone(self):
+        return self._cursor.fetchone()
+
+    def fetchall(self):
+        return self._cursor.fetchall()
+
+    def __iter__(self):
+        return iter(self._cursor)
+
+
+class _ConexaoPostgres:
+    """Conexão com o PostgreSQL com a mesma interface usada do sqlite3."""
+
+    def __init__(self, url):
+        if psycopg is None:
+            raise RuntimeError(
+                "DATABASE_URL está definida, mas o psycopg não está instalado. "
+                "Rode: pip install -r requirements.txt"
+            )
+        self._conn = psycopg.connect(url, row_factory=_fabrica_de_linhas)
+
+    def execute(self, sql, parametros=()):
+        sql = _sql_postgres(sql, bool(parametros))
+        insert = sql.lstrip().upper().startswith("INSERT")
+        if insert and "RETURNING" not in sql.upper():
+            # O PostgreSQL não tem lastrowid: pede a linha inserida de volta.
+            sql += " RETURNING *"
+        cursor = self._conn.execute(sql, parametros or None)
+        lastrowid = None
+        if insert:
+            linha = cursor.fetchone()
+            if linha is not None:
+                lastrowid = linha.get("id")
+        return _CursorPostgres(cursor, lastrowid)
+
+    def executescript(self, script):
+        # Sem parâmetros, o psycopg aceita vários comandos de uma vez.
+        self._conn.execute(_sql_postgres(script, com_parametros=False))
+        self._conn.commit()
+
+    def commit(self):
+        self._conn.commit()
+
+    def close(self):
+        self._conn.close()
+
+
+# ---------- CRIAÇÃO E ATUALIZAÇÃO DO BANCO ----------
 
 def _executar_script(nome_arquivo):
     caminho = os.path.join(os.path.dirname(__file__), nome_arquivo)
@@ -37,7 +172,18 @@ TABELAS_COM_BARBEARIA = ("clientes", "barbeiros", "servicos", "atendimentos", "u
 
 
 def _colunas(conn, tabela):
-    return {linha["name"] for linha in conn.execute(f"PRAGMA table_info({tabela})")}
+    """Nomes das colunas da tabela (vazio se a tabela não existe)."""
+    if isinstance(conn, _ConexaoPostgres):
+        linhas = conn.execute(
+            """
+            SELECT column_name AS name FROM information_schema.columns
+            WHERE table_schema = current_schema() AND table_name = ?
+            """,
+            (tabela,),
+        )
+    else:
+        linhas = conn.execute(f"PRAGMA table_info({tabela})")
+    return {linha["name"] for linha in linhas}
 
 
 def _separar_por_barbearia(conn):
@@ -130,11 +276,34 @@ def atualizar_banco():
 
 
 def init_db():
-    """Inicializa o banco de dados executando o schema.sql."""
+    """
+    Recria o banco do zero (apaga tudo!) com o schema.sql e os dados de
+    exemplo de dados_exemplo.sql.
+    """
     _executar_script("schema.sql")
+    _executar_script("dados_exemplo.sql")
     atualizar_banco()
     print("Banco de dados inicializado com sucesso.")
 
 
+def preparar_banco():
+    """
+    Usado no deploy, a cada vez que o servidor sobe: num banco vazio, cria
+    as tabelas (sem dados de exemplo); num banco que já tem tabelas, só o
+    atualiza com atualizar_banco. Nunca apaga dados.
+    """
+    conn = get_connection()
+    vazio = not _colunas(conn, "clientes")  # tabela que existe desde a 1ª versão
+    conn.close()
+    if vazio:
+        _executar_script("schema.sql")
+        print("Tabelas criadas.")
+    atualizar_banco()
+    print("Banco de dados pronto.")
+
+
 if __name__ == "__main__":
-    init_db()
+    if sys.argv[1:] == ["--preparar"]:
+        preparar_banco()
+    else:
+        init_db()
