@@ -8,6 +8,7 @@ Cada barbearia só vê os próprios dados: as funções recebem o barbearia_id
 como primeiro argumento e filtram (ou gravam) sempre por ele.
 """
 
+import math
 import time
 
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -96,12 +97,54 @@ def criar_cliente(barbearia_id, nome, telefone=None):
     conn.close()
 
 
+# ---------- VALIDAÇÃO ----------
+
+def _validar_nome(nome, campo="O nome"):
+    nome = (nome or "").strip()
+    if not nome:
+        raise ValueError(f"{campo} não pode ficar em branco.")
+    return nome
+
+
+def _numero(valor, mensagem, minimo, maximo=None, tipo=float):
+    """Converte o texto do formulário (aceita vírgula) e confere os limites."""
+    try:
+        numero = tipo(str(valor).strip().replace(",", "."))
+    except ValueError:
+        raise ValueError(mensagem) from None
+    if not math.isfinite(numero) or numero < minimo or (maximo is not None and numero > maximo):
+        raise ValueError(mensagem)
+    return numero
+
+
+def _definir_ativo(tabela, barbearia_id, registro_id, ativo):
+    conn = get_connection()
+    conn.execute(
+        f"UPDATE {tabela} SET ativo = ? WHERE id = ? AND barbearia_id = ?",
+        (1 if ativo else 0, registro_id, barbearia_id),
+    )
+    conn.commit()
+    conn.close()
+
+
 # ---------- BARBEIROS ----------
 
-def listar_barbeiros(barbearia_id):
+def _validar_barbeiro(nome, comissao_percentual):
+    return (
+        _validar_nome(nome),
+        _numero(
+            comissao_percentual,
+            "A comissão precisa ser um número entre 0 e 100.",
+            0, 100,
+        ),
+    )
+
+
+def listar_barbeiros(barbearia_id, somente_ativos=False):
+    filtro = "AND ativo = 1" if somente_ativos else ""
     conn = get_connection()
     barbeiros = conn.execute(
-        "SELECT * FROM barbeiros WHERE barbearia_id = ? ORDER BY nome",
+        f"SELECT * FROM barbeiros WHERE barbearia_id = ? {filtro} ORDER BY nome",
         (barbearia_id,),
     ).fetchall()
     conn.close()
@@ -121,6 +164,7 @@ def buscar_barbeiro(barbearia_id, barbeiro_id):
 
 def criar_barbeiro(barbearia_id, nome, comissao_percentual=40.0):
     """Cadastra um barbeiro e retorna o id dele."""
+    nome, comissao_percentual = _validar_barbeiro(nome, comissao_percentual)
     conn = get_connection()
     barbeiro_id = conn.execute(
         """
@@ -134,20 +178,67 @@ def criar_barbeiro(barbearia_id, nome, comissao_percentual=40.0):
     return barbeiro_id
 
 
+def editar_barbeiro(barbearia_id, barbeiro_id, nome, comissao_percentual):
+    nome, comissao_percentual = _validar_barbeiro(nome, comissao_percentual)
+    conn = get_connection()
+    conn.execute(
+        """
+        UPDATE barbeiros SET nome = ?, comissao_percentual = ?
+        WHERE id = ? AND barbearia_id = ?
+        """,
+        (nome, comissao_percentual, barbeiro_id, barbearia_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def definir_barbeiro_ativo(barbearia_id, barbeiro_id, ativo):
+    """
+    Desativa (ou reativa) o barbeiro. Desativado, ele some do formulário de
+    atendimento, mas continua nos atendimentos antigos e nos relatórios.
+    """
+    _definir_ativo("barbeiros", barbearia_id, barbeiro_id, ativo)
+
+
 # ---------- SERVIÇOS ----------
 
-def listar_servicos(barbearia_id):
+def _validar_servico(nome, preco, duracao_minutos):
+    return (
+        _validar_nome(nome),
+        _numero(preco, "O preço precisa ser um número maior ou igual a zero.", 0),
+        _numero(
+            duracao_minutos,
+            "A duração precisa ser um número inteiro de minutos, maior que zero.",
+            1, tipo=int,
+        ),
+    )
+
+
+def listar_servicos(barbearia_id, somente_ativos=False):
+    filtro = "AND ativo = 1" if somente_ativos else ""
     conn = get_connection()
     servicos = conn.execute(
-        "SELECT * FROM servicos WHERE barbearia_id = ? ORDER BY nome",
+        f"SELECT * FROM servicos WHERE barbearia_id = ? {filtro} ORDER BY nome",
         (barbearia_id,),
     ).fetchall()
     conn.close()
     return servicos
 
 
+def buscar_servico(barbearia_id, servico_id):
+    """O serviço, ou None se ele não existir ou for de outra barbearia."""
+    conn = get_connection()
+    servico = conn.execute(
+        "SELECT * FROM servicos WHERE id = ? AND barbearia_id = ?",
+        (servico_id, barbearia_id),
+    ).fetchone()
+    conn.close()
+    return servico
+
+
 def criar_servico(barbearia_id, nome, preco, duracao_minutos=30):
     """Cadastra um serviço e retorna o id dele."""
+    nome, preco, duracao_minutos = _validar_servico(nome, preco, duracao_minutos)
     conn = get_connection()
     servico_id = conn.execute(
         """
@@ -159,6 +250,25 @@ def criar_servico(barbearia_id, nome, preco, duracao_minutos=30):
     conn.commit()
     conn.close()
     return servico_id
+
+
+def editar_servico(barbearia_id, servico_id, nome, preco, duracao_minutos):
+    nome, preco, duracao_minutos = _validar_servico(nome, preco, duracao_minutos)
+    conn = get_connection()
+    conn.execute(
+        """
+        UPDATE servicos SET nome = ?, preco = ?, duracao_minutos = ?
+        WHERE id = ? AND barbearia_id = ?
+        """,
+        (nome, preco, duracao_minutos, servico_id, barbearia_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def definir_servico_ativo(barbearia_id, servico_id, ativo):
+    """Como em definir_barbeiro_ativo: some do formulário, fica no histórico."""
+    _definir_ativo("servicos", barbearia_id, servico_id, ativo)
 
 
 # ---------- ATENDIMENTOS ----------
@@ -198,7 +308,8 @@ def listar_atendimentos(barbearia_id, barbeiro_id=None):
 def criar_atendimento(barbearia_id, cliente_id, barbeiro_id, servico_id, valor_cobrado, forma_pagamento="dinheiro"):
     """
     Registra um atendimento. O cliente, o barbeiro e o serviço precisam ser
-    da mesma barbearia; senão, levanta ValueError e nada é gravado.
+    da mesma barbearia, e o barbeiro e o serviço precisam estar ativos;
+    senão, levanta ValueError e nada é gravado.
     """
     conn = get_connection()
     try:
@@ -208,13 +319,15 @@ def criar_atendimento(barbearia_id, cliente_id, barbeiro_id, servico_id, valor_c
             ("servicos", "Serviço", servico_id),
         ):
             encontrado = conn.execute(
-                f"SELECT 1 FROM {tabela} WHERE id = ? AND barbearia_id = ?",
+                f"SELECT * FROM {tabela} WHERE id = ? AND barbearia_id = ?",
                 (registro_id, barbearia_id),
             ).fetchone()
             if encontrado is None:
                 raise ValueError(
                     f"{nome} {registro_id} não existe nesta barbearia."
                 )
+            if "ativo" in encontrado.keys() and not encontrado["ativo"]:
+                raise ValueError(f"{nome} {registro_id} está desativado.")
         conn.execute(
             """
             INSERT INTO atendimentos
@@ -232,37 +345,62 @@ def criar_atendimento(barbearia_id, cliente_id, barbeiro_id, servico_id, valor_c
 
 # ---------- USUÁRIOS ----------
 
+def _validar_papel(barbearia_id, papel, barbeiro_id):
+    """Confere o papel e devolve o barbeiro_id a gravar (None para o dono)."""
+    if papel not in PAPEIS:
+        raise ValueError(f"Papel inválido: {papel!r}. Use 'dono' ou 'barbeiro'.")
+    if papel == "dono":
+        return None
+    if barbeiro_id in (None, ""):
+        raise ValueError("Usuário barbeiro precisa de um barbeiro_id.")
+    if buscar_barbeiro(barbearia_id, barbeiro_id) is None:
+        raise ValueError(f"Barbeiro {barbeiro_id} não existe nesta barbearia.")
+    return int(barbeiro_id)
+
+
 def criar_usuario(barbearia_id, usuario, senha, papel, barbeiro_id=None):
     """
     Cadastra um usuário da barbearia com a senha guardada em hash. Usuário
     do papel 'barbeiro' precisa estar vinculado a um barbeiro da mesma
-    barbearia.
+    barbearia. Nome de usuário repetido levanta sqlite3.IntegrityError.
     """
+    usuario = _validar_nome(usuario, "O nome de usuário")
     if papel not in PAPEIS:
         raise ValueError(f"Papel inválido: {papel!r}. Use 'dono' ou 'barbeiro'.")
     _validar_senha(senha)
     if buscar_barbearia(barbearia_id) is None:
         raise ValueError(f"Barbearia {barbearia_id} não existe.")
-    if papel == "barbeiro":
-        if barbeiro_id is None:
-            raise ValueError("Usuário barbeiro precisa de um barbeiro_id.")
-        if buscar_barbeiro(barbearia_id, barbeiro_id) is None:
-            raise ValueError(
-                f"Barbeiro {barbeiro_id} não existe nesta barbearia."
-            )
-    else:
-        barbeiro_id = None
+    barbeiro_id = _validar_papel(barbearia_id, papel, barbeiro_id)
 
     conn = get_connection()
-    conn.execute(
+    try:
+        conn.execute(
+            """
+            INSERT INTO usuarios (barbearia_id, usuario, senha_hash, papel, barbeiro_id)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (barbearia_id, usuario, generate_password_hash(senha), papel, barbeiro_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def listar_usuarios(barbearia_id):
+    """Usuários da barbearia, com o nome do barbeiro vinculado (se houver)."""
+    conn = get_connection()
+    usuarios = conn.execute(
         """
-        INSERT INTO usuarios (barbearia_id, usuario, senha_hash, papel, barbeiro_id)
-        VALUES (?, ?, ?, ?, ?)
+        SELECT usuarios.*, barbeiros.nome AS barbeiro
+        FROM usuarios
+        LEFT JOIN barbeiros ON barbeiros.id = usuarios.barbeiro_id
+        WHERE usuarios.barbearia_id = ?
+        ORDER BY usuarios.usuario
         """,
-        (barbearia_id, usuario, generate_password_hash(senha), papel, barbeiro_id),
-    )
-    conn.commit()
+        (barbearia_id,),
+    ).fetchall()
     conn.close()
+    return usuarios
 
 
 def buscar_usuario(usuario_id):
@@ -274,14 +412,87 @@ def buscar_usuario(usuario_id):
     return usuario
 
 
+def buscar_usuario_da_barbearia(barbearia_id, usuario_id):
+    """O usuário, ou None se ele não existir ou for de outra barbearia."""
+    usuario = buscar_usuario(usuario_id)
+    if usuario is None or usuario["barbearia_id"] != barbearia_id:
+        return None
+    return usuario
+
+
+def _confere_outro_dono_ativo(conn, barbearia_id, usuario_id):
+    """A barbearia não pode ficar sem nenhum dono ativo."""
+    outros = conn.execute(
+        """
+        SELECT COUNT(*) FROM usuarios
+        WHERE barbearia_id = ? AND papel = 'dono' AND ativo = 1 AND id != ?
+        """,
+        (barbearia_id, usuario_id),
+    ).fetchone()[0]
+    if outros == 0:
+        raise ValueError("A barbearia precisa ter pelo menos um dono ativo.")
+
+
+def editar_usuario(barbearia_id, usuario_id, papel, barbeiro_id=None, nova_senha=""):
+    """
+    Muda o papel (e o barbeiro vinculado) do usuário; com nova_senha, troca
+    também a senha. Tirar o papel de dono do último dono ativo é recusado.
+    """
+    barbeiro_id = _validar_papel(barbearia_id, papel, barbeiro_id)
+    if nova_senha:
+        _validar_senha(nova_senha)
+    conn = get_connection()
+    try:
+        if papel != "dono":
+            _confere_outro_dono_ativo(conn, barbearia_id, usuario_id)
+        conn.execute(
+            """
+            UPDATE usuarios SET papel = ?, barbeiro_id = ?
+            WHERE id = ? AND barbearia_id = ?
+            """,
+            (papel, barbeiro_id, usuario_id, barbearia_id),
+        )
+        if nova_senha:
+            conn.execute(
+                "UPDATE usuarios SET senha_hash = ? WHERE id = ? AND barbearia_id = ?",
+                (generate_password_hash(nova_senha), usuario_id, barbearia_id),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def definir_usuario_ativo(barbearia_id, usuario_id, ativo):
+    """
+    Desativa (ou reativa) o usuário. Desativado, ele não consegue entrar.
+    Desativar o último dono ativo é recusado.
+    """
+    if not ativo:
+        conn = get_connection()
+        try:
+            usuario = conn.execute(
+                "SELECT papel FROM usuarios WHERE id = ? AND barbearia_id = ?",
+                (usuario_id, barbearia_id),
+            ).fetchone()
+            if usuario is not None and usuario["papel"] == "dono":
+                _confere_outro_dono_ativo(conn, barbearia_id, usuario_id)
+        finally:
+            conn.close()
+    _definir_ativo("usuarios", barbearia_id, usuario_id, ativo)
+
+
 def autenticar(usuario, senha):
-    """Retorna o usuário se a senha estiver correta; senão, None."""
+    """Retorna o usuário se a senha estiver correta e ele estiver ativo; senão, None."""
     conn = get_connection()
     encontrado = conn.execute(
         "SELECT * FROM usuarios WHERE usuario = ?", (usuario,)
     ).fetchone()
     conn.close()
-    if encontrado and check_password_hash(encontrado["senha_hash"], senha):
+    if (
+        encontrado
+        and encontrado["ativo"]
+        and check_password_hash(encontrado["senha_hash"], senha)
+    ):
         return encontrado
     return None
 

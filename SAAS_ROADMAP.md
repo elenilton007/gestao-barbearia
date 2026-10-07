@@ -12,8 +12,8 @@ Flask. Já tem
 proteção CSRF nos formulários (Flask-WTF), e login com os papéis *dono*
 e *barbeiro* (o barbeiro vê só os próprios atendimentos e comissões).
 Tem cadastro de clientes, registro de atendimentos, comissões e relatórios
-básicos. Barbeiros e serviços só existem via `schema.sql` (não há tela para
-cadastrá-los), e rodar `python database.py` **apaga todos os dados**
+básicos. O dono cadastra, edita e desativa barbeiros, serviços e usuários
+pelas telas, e rodar `python database.py` **apaga todos os dados**
 (o schema começa com `DROP TABLE`).
 
 ## 🔴 Bloqueadores (sem isso não dá para cobrar de ninguém)
@@ -25,17 +25,18 @@ cadastrá-los), e rodar `python database.py` **apaga todos os dados**
    - ~~Filtrar **todas** as queries de `models.py` e `reports.py` pelo tenant
      da sessão.~~ Feito: a barbearia vem do usuário logado, e atendimento
      com cliente, barbeiro ou serviço de outra barbearia é recusado.
+   - ~~Telas para a barbearia nova cadastrar os próprios barbeiros e
+     serviços.~~ Feito (menus *Barbeiros* e *Serviços*, só para o dono).
    - Cadastro de barbearia pela web (hoje é pelo `criar_usuario.py
-     --nova-barbearia`) e telas para a barbearia nova cadastrar os próprios
-     barbeiros e serviços (hoje ela começa vazia e não há como preenchê-la
-     sem SQL).
+     --nova-barbearia`).
 2. **Autenticação e permissões**
    - ~~Tabela `usuarios` com senha em hash (`werkzeug.security`), papéis
      *dono* e *barbeiro* (barbeiro vê só as próprias comissões).~~ Feito.
    - ~~Tela para o usuário (dono ou barbeiro) trocar a própria senha.~~ Feito (encerra as
      sessões abertas em outros aparelhos).
-   - Papel *recepção*, tela para o dono gerenciar usuários (hoje é pelo
-     `criar_usuario.py`) e recuperação de senha por e-mail.
+   - ~~Tela para o dono gerenciar usuários.~~ Feito (menu *Usuários*:
+     cadastrar, mudar papel, trocar senha, desativar).
+   - Papel *recepção* e recuperação de senha por e-mail.
 3. **Segurança web**
    - ~~`SECRET_KEY` via variável de ambiente e proteção CSRF nos
      formulários (Flask-WTF).~~ Feito.
@@ -74,8 +75,11 @@ Concorrentes (Trinks, AppBarber, Booksy, Avec etc.) já oferecem:
   horários de funcionamento, bloqueios, e um link público para o cliente
   marcar sozinho.
 - **Lembretes por WhatsApp/SMS** (confirmação e redução de faltas).
-- **CRUD completo** — editar/excluir clientes e atendimentos; telas para
-  cadastrar barbeiros, serviços e percentuais de comissão.
+- **CRUD completo** — editar/excluir clientes e atendimentos (barbeiros,
+  serviços e comissões já têm tela).
+- **Comissão congelada no atendimento** — hoje o relatório usa o percentual
+  *atual* do barbeiro, então mudar a comissão na tela muda também a dos
+  atendimentos antigos. Gravar o percentual em cada atendimento.
 - **Preenchimento automático do valor** a partir do preço do serviço.
 - **Filtro por período** nos relatórios (hoje somam *tudo* desde sempre) e
   fechamento de comissão por período, com marcação de "pago".
