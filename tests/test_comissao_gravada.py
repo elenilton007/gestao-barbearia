@@ -74,6 +74,20 @@ def test_mudar_comissao_de_um_barbeiro_nao_afeta_outro():
     assert _comissao_de(BARBEIRO_JOAO)["comissao_valor"] == pytest.approx(80.00)
 
 
+def test_mudar_comissao_pela_tela_nao_altera_atendimentos_antigos(client):
+    models.criar_atendimento(BARBEARIA, 1, BARBEIRO_JOAO, 1, 100.00)  # 40%
+    resposta = client.post(
+        f"/barbeiros/{BARBEIRO_JOAO}/editar",
+        data={"nome": "João Pereira", "comissao_percentual": "60"},
+    )
+    assert resposta.status_code == 302
+    models.criar_atendimento(BARBEARIA, 2, BARBEIRO_JOAO, 1, 100.00)  # 60%
+
+    joao = _comissao_de(BARBEIRO_JOAO)
+    assert joao["comissao_percentual"] == 60.0
+    assert joao["comissao_valor"] == pytest.approx(40.00 + 60.00)
+
+
 def test_atendimento_de_barbeiro_de_outra_barbearia_nao_grava_nada(outra_barbearia):
     with pytest.raises(ValueError):
         models.criar_atendimento(BARBEARIA, 1, outra_barbearia.barbeiro_id, 1, 10.00)

@@ -2,7 +2,8 @@
 app.py
 
 Aplicação Flask do Sistema de Gestão de Barbearia — rotas para
-login, dashboard, clientes, atendimentos e relatórios financeiros.
+login, dashboard, clientes, atendimentos, relatórios financeiros e o
+cadastro de barbeiros, serviços e usuários (só o dono).
 
 Cada usuário pertence a uma barbearia e só vê os dados dela.
 
@@ -16,6 +17,7 @@ import hashlib
 import math
 import os
 import secrets
+import sqlite3
 import time
 
 from flask import (
@@ -84,7 +86,11 @@ def carregar_usuario():
     if not usuario_id:
         return
     usuario = models.buscar_usuario(usuario_id)
-    if usuario is None or session.get("senha") != _marca_da_senha(usuario):
+    if (
+        usuario is None
+        or not usuario["ativo"]  # desativado com a sessão aberta: sai na hora
+        or session.get("senha") != _marca_da_senha(usuario)
+    ):
         session.clear()
         return
     agora = time.time()
@@ -245,8 +251,8 @@ def atendimentos():
     if barbeiro_id is not None:
         barbeiros = [models.buscar_barbeiro(barbearia_id, barbeiro_id)]
     else:
-        barbeiros = models.listar_barbeiros(barbearia_id)
-    servicos = models.listar_servicos(barbearia_id)
+        barbeiros = models.listar_barbeiros(barbearia_id, somente_ativos=True)
+    servicos = models.listar_servicos(barbearia_id, somente_ativos=True)
     return render_template(
         "atendimentos.html",
         atendimentos=lista,
@@ -261,7 +267,8 @@ def atendimentos():
 def novo_atendimento():
     """
     Registra um novo atendimento (o barbeiro só registra em seu nome).
-    Cliente, barbeiro ou serviço de outra barbearia dá erro 400.
+    Cliente, barbeiro ou serviço de outra barbearia, ou barbeiro ou serviço
+    desativado, dá erro 400.
     """
     cliente_id = request.form["cliente_id"]
     barbeiro_id = barbeiro_logado()
@@ -295,6 +302,214 @@ def relatorios():
         comissoes=comissoes,
         servicos=servicos,
     )
+
+
+# ---------- CADASTROS (SÓ O DONO) ----------
+# Barbeiros, serviços e usuários não são apagados, só desativados: os
+# atendimentos antigos continuam apontando para eles.
+
+def _ativo_do_formulario():
+    """Campo ativo dos botões Desativar/Reativar: '1' reativa, '0' desativa."""
+    valor = request.form.get("ativo")
+    if valor not in ("0", "1"):
+        abort(400)
+    return valor == "1"
+
+
+def _ou_404(registro):
+    if registro is None:
+        abort(404)  # não existe ou é de outra barbearia
+    return registro
+
+
+@app.route("/barbeiros")
+@somente_dono
+def barbeiros():
+    lista = models.listar_barbeiros(barbearia_logada())
+    return render_template("barbeiros.html", barbeiros=lista)
+
+
+@app.route("/barbeiros/novo", methods=["POST"])
+@somente_dono
+def novo_barbeiro():
+    try:
+        models.criar_barbeiro(
+            barbearia_logada(),
+            request.form.get("nome"),
+            request.form.get("comissao_percentual", ""),
+        )
+    except ValueError as erro:
+        flash(str(erro))
+    return redirect(url_for("barbeiros"))
+
+
+@app.route("/barbeiros/<int:barbeiro_id>/editar", methods=["GET", "POST"])
+@somente_dono
+def editar_barbeiro(barbeiro_id):
+    barbearia_id = barbearia_logada()
+    barbeiro = _ou_404(models.buscar_barbeiro(barbearia_id, barbeiro_id))
+    if request.method == "POST":
+        try:
+            models.editar_barbeiro(
+                barbearia_id,
+                barbeiro_id,
+                request.form.get("nome"),
+                request.form.get("comissao_percentual", ""),
+            )
+        except ValueError as erro:
+            flash(str(erro))
+            return redirect(url_for("editar_barbeiro", barbeiro_id=barbeiro_id))
+        return redirect(url_for("barbeiros"))
+    return render_template("editar_barbeiro.html", barbeiro=barbeiro)
+
+
+@app.route("/barbeiros/<int:barbeiro_id>/ativo", methods=["POST"])
+@somente_dono
+def ativar_barbeiro(barbeiro_id):
+    barbearia_id = barbearia_logada()
+    _ou_404(models.buscar_barbeiro(barbearia_id, barbeiro_id))
+    ativo = _ativo_do_formulario()
+    models.definir_barbeiro_ativo(barbearia_id, barbeiro_id, ativo)
+    if not ativo and any(
+        u["barbeiro_id"] == barbeiro_id and u["ativo"]
+        for u in models.listar_usuarios(barbearia_id)
+    ):
+        flash(
+            "O login deste barbeiro continua ativo. Se ele saiu da barbearia, "
+            "desative-o também em Usuários."
+        )
+    return redirect(url_for("barbeiros"))
+
+
+@app.route("/servicos")
+@somente_dono
+def servicos():
+    lista = models.listar_servicos(barbearia_logada())
+    return render_template("servicos.html", servicos=lista)
+
+
+@app.route("/servicos/novo", methods=["POST"])
+@somente_dono
+def novo_servico():
+    try:
+        models.criar_servico(
+            barbearia_logada(),
+            request.form.get("nome"),
+            request.form.get("preco", ""),
+            request.form.get("duracao_minutos", ""),
+        )
+    except ValueError as erro:
+        flash(str(erro))
+    return redirect(url_for("servicos"))
+
+
+@app.route("/servicos/<int:servico_id>/editar", methods=["GET", "POST"])
+@somente_dono
+def editar_servico(servico_id):
+    barbearia_id = barbearia_logada()
+    servico = _ou_404(models.buscar_servico(barbearia_id, servico_id))
+    if request.method == "POST":
+        try:
+            models.editar_servico(
+                barbearia_id,
+                servico_id,
+                request.form.get("nome"),
+                request.form.get("preco", ""),
+                request.form.get("duracao_minutos", ""),
+            )
+        except ValueError as erro:
+            flash(str(erro))
+            return redirect(url_for("editar_servico", servico_id=servico_id))
+        return redirect(url_for("servicos"))
+    return render_template("editar_servico.html", servico=servico)
+
+
+@app.route("/servicos/<int:servico_id>/ativo", methods=["POST"])
+@somente_dono
+def ativar_servico(servico_id):
+    barbearia_id = barbearia_logada()
+    _ou_404(models.buscar_servico(barbearia_id, servico_id))
+    models.definir_servico_ativo(barbearia_id, servico_id, _ativo_do_formulario())
+    return redirect(url_for("servicos"))
+
+
+@app.route("/usuarios")
+@somente_dono
+def usuarios():
+    barbearia_id = barbearia_logada()
+    return render_template(
+        "usuarios.html",
+        usuarios=models.listar_usuarios(barbearia_id),
+        barbeiros=models.listar_barbeiros(barbearia_id, somente_ativos=True),
+        papeis=models.PAPEIS,
+    )
+
+
+@app.route("/usuarios/novo", methods=["POST"])
+@somente_dono
+def novo_usuario():
+    usuario = request.form.get("usuario", "")
+    try:
+        models.criar_usuario(
+            barbearia_logada(),
+            usuario,
+            request.form.get("senha", ""),
+            request.form.get("papel", ""),
+            request.form.get("barbeiro_id") or None,
+        )
+    except ValueError as erro:
+        flash(str(erro))
+    except sqlite3.IntegrityError:
+        flash(f"Já existe um usuário chamado {usuario.strip()!r}.")
+    return redirect(url_for("usuarios"))
+
+
+@app.route("/usuarios/<int:usuario_id>/editar", methods=["GET", "POST"])
+@somente_dono
+def editar_usuario(usuario_id):
+    barbearia_id = barbearia_logada()
+    usuario = _ou_404(models.buscar_usuario_da_barbearia(barbearia_id, usuario_id))
+    if request.method == "POST":
+        papel = request.form.get("papel", "")
+        try:
+            if usuario_id == g.usuario["id"] and papel != "dono":
+                raise ValueError("Você não pode tirar o seu próprio papel de dono.")
+            nova_senha = request.form.get("nova_senha", "")
+            models.editar_usuario(
+                barbearia_id,
+                usuario_id,
+                papel,
+                request.form.get("barbeiro_id") or None,
+                nova_senha,
+            )
+        except ValueError as erro:
+            flash(str(erro))
+            return redirect(url_for("editar_usuario", usuario_id=usuario_id))
+        if nova_senha and usuario_id == g.usuario["id"]:
+            # Como em trocar_senha: continua logado aqui, os outros aparelhos saem.
+            _iniciar_sessao(models.buscar_usuario(usuario_id))
+        return redirect(url_for("usuarios"))
+    return render_template(
+        "editar_usuario.html",
+        usuario=usuario,
+        barbeiros=models.listar_barbeiros(barbearia_id),
+        papeis=models.PAPEIS,
+    )
+
+
+@app.route("/usuarios/<int:usuario_id>/ativo", methods=["POST"])
+@somente_dono
+def ativar_usuario(usuario_id):
+    barbearia_id = barbearia_logada()
+    _ou_404(models.buscar_usuario_da_barbearia(barbearia_id, usuario_id))
+    ativo = _ativo_do_formulario()
+    try:
+        if usuario_id == g.usuario["id"] and not ativo:
+            raise ValueError("Você não pode desativar o seu próprio usuário.")
+        models.definir_usuario_ativo(barbearia_id, usuario_id, ativo)
+    except ValueError as erro:
+        flash(str(erro))
+    return redirect(url_for("usuarios"))
 
 
 if __name__ == "__main__":

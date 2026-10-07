@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>💈 Editar Barbeiro</h2>
+
+<div class="card">
+    <h3>{{ barbeiro.nome }}</h3>
+    <form method="POST" action="{{ url_for('editar_barbeiro', barbeiro_id=barbeiro.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="nome">Nome:</label>
+        <input type="text" id="nome" name="nome" value="{{ barbeiro.nome }}" required>
+
+        <label for="comissao_percentual">Comissão (%):</label>
+        <input type="number" step="0.01" min="0" max="100" id="comissao_percentual"
+               name="comissao_percentual" value="{{ barbeiro.comissao_percentual }}" required>
+        <p class="dica">A comissão é calculada na hora do relatório: mudar o
+            percentual muda também a comissão dos atendimentos antigos.</p>
+
+        <button type="submit">Salvar</button>
+    </form>
+    <p><a href="{{ url_for('barbeiros') }}">Voltar</a></p>
+</div>
+{% endblock %}

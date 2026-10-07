@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>💈 Barbeiros</h2>
+
+<div class="card">
+    <h3>Cadastrar Novo Barbeiro</h3>
+    <form method="POST" action="{{ url_for('novo_barbeiro') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="nome">Nome:</label>
+        <input type="text" id="nome" name="nome" required>
+
+        <label for="comissao_percentual">Comissão (%):</label>
+        <input type="number" step="0.01" min="0" max="100" id="comissao_percentual"
+               name="comissao_percentual" value="40" required>
+
+        <button type="submit">Cadastrar</button>
+    </form>
+</div>
+
+<div class="card">
+    <h3>Lista de Barbeiros</h3>
+    <p class="dica">Barbeiro desativado não aparece no registro de atendimentos,
+        mas continua no histórico e nos relatórios.</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Nome</th>
+                <th>Comissão</th>
+                <th>Situação</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for barbeiro in barbeiros %}
+            <tr class="{{ '' if barbeiro.ativo else 'inativo' }}">
+                <td>{{ barbeiro.nome }}</td>
+                <td>{{ "%.2f"|format(barbeiro.comissao_percentual) }}%</td>
+                <td>{{ "Ativo" if barbeiro.ativo else "Desativado" }}</td>
+                <td>
+                    <div class="acoes">
+                    <a href="{{ url_for('editar_barbeiro', barbeiro_id=barbeiro.id) }}">Editar</a>
+                    {% with registro=barbeiro, rota=url_for('ativar_barbeiro', barbeiro_id=barbeiro.id) %}
+                    {% include "_ativo.html" %}
+                    {% endwith %}
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4">Nenhum barbeiro cadastrado.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

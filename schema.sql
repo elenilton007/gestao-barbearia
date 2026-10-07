@@ -5,6 +5,9 @@
 --
 -- Cada barbearia só enxerga os próprios dados: toda tabela tem a coluna
 -- barbearia_id, e toda consulta em models.py e reports.py filtra por ela.
+--
+-- Barbeiros, serviços e usuários não são apagados, só desativados
+-- (ativo = 0): os atendimentos antigos continuam apontando para eles.
 
 DROP TABLE IF EXISTS usuarios;
 DROP TABLE IF EXISTS atendimentos;
@@ -33,6 +36,7 @@ CREATE TABLE barbeiros (
     barbearia_id INTEGER NOT NULL,
     nome TEXT NOT NULL,
     comissao_percentual REAL NOT NULL DEFAULT 40.0,
+    ativo INTEGER NOT NULL DEFAULT 1,
     FOREIGN KEY (barbearia_id) REFERENCES barbearias (id)
 );
 
@@ -42,6 +46,7 @@ CREATE TABLE servicos (
     nome TEXT NOT NULL,
     preco REAL NOT NULL,
     duracao_minutos INTEGER NOT NULL DEFAULT 30,
+    ativo INTEGER NOT NULL DEFAULT 1,
     FOREIGN KEY (barbearia_id) REFERENCES barbearias (id)
 );
 
