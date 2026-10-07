@@ -6,7 +6,9 @@ como serviço por assinatura para barbearias. Itens ordenados por prioridade.
 ## Estado atual
 
 Hoje o sistema é uma aplicação **de uma única barbearia, sem login**, rodando
-em SQLite local com o servidor de desenvolvimento do Flask (`debug=True`).
+em SQLite local com o servidor de desenvolvimento do Flask. Já tem
+`SECRET_KEY` por variável de ambiente, debug desligado por padrão e
+proteção CSRF nos formulários (Flask-WTF).
 Tem cadastro de clientes, registro de atendimentos, comissões e relatórios
 básicos. Barbeiros e serviços só existem via `schema.sql` (não há tela para
 cadastrá-los), e rodar `python database.py` **apaga todos os dados**
@@ -24,10 +26,10 @@ cadastrá-los), e rodar `python database.py` **apaga todos os dados**
    *barbeiro* (barbeiro vê só as próprias comissões), recuperação de senha
    por e-mail.
 3. **Segurança web**
-   - `SECRET_KEY` via variável de ambiente e proteção CSRF nos formulários
-     (Flask-WTF).
-   - Remover `debug=True` em produção (o debugger do Werkzeug permite
-     execução remota de código).
+   - ~~`SECRET_KEY` via variável de ambiente e proteção CSRF nos
+     formulários (Flask-WTF).~~ Feito.
+   - ~~Remover `debug=True` em produção.~~ Feito: o debug só liga com
+     `FLASK_DEBUG=1`.
    - Validar entradas: hoje `valor_cobrado` aceita qualquer texto, IDs não
      são checados e o SQLite está com chaves estrangeiras desligadas
      (`PRAGMA foreign_keys = ON` não é executado).
@@ -86,7 +88,7 @@ Concorrentes (Trinks, AppBarber, Booksy, Avec etc.) já oferecem:
 ## Sugestão de ordem de execução
 
 1. Migrações + PostgreSQL + `barbearia_id` em todas as tabelas.
-2. Login, papéis, CSRF, `SECRET_KEY`, validação de entrada.
+2. Login, papéis, validação de entrada.
 3. CRUD completo de barbeiros/serviços/clientes e filtros de período.
 4. Agenda e agendamento online (principal argumento de venda).
 5. Deploy (Docker + Gunicorn + HTTPS), backups, Sentry, CI.

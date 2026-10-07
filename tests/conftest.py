@@ -13,6 +13,9 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+# O app exige SECRET_KEY ao ser importado.
+os.environ.setdefault("SECRET_KEY", "chave-de-teste")
+
 import database
 
 
@@ -26,9 +29,22 @@ def banco_temporario(tmp_path, monkeypatch):
 
 @pytest.fixture
 def client():
-    """Cliente de teste do Flask."""
+    """Cliente de teste do Flask, com CSRF desligado."""
     from app import app
 
     app.config["TESTING"] = True
+    app.config["WTF_CSRF_ENABLED"] = False
+    with app.test_client() as client:
+        yield client
+    app.config["WTF_CSRF_ENABLED"] = True
+
+
+@pytest.fixture
+def client_csrf():
+    """Cliente de teste do Flask com a proteção CSRF ativa."""
+    from app import app
+
+    app.config["TESTING"] = True
+    app.config["WTF_CSRF_ENABLED"] = True
     with app.test_client() as client:
         yield client

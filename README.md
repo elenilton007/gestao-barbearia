@@ -90,14 +90,42 @@ BARBEARIA_DB=/caminho/para/minha.db python database.py
 
 ### 5. Rodar a aplicação
 
+Para desenvolvimento local, ligue o modo debug (ele gera uma `SECRET_KEY`
+temporária automaticamente):
+
+Linux/macOS:
+
 ```bash
-python app.py
+FLASK_DEBUG=1 python app.py
+```
+
+Windows (PowerShell):
+
+```powershell
+$env:FLASK_DEBUG="1"; python app.py
 ```
 
 Acesse **http://127.0.0.1:5000** no navegador.
 
-> O servidor embutido do Flask roda em modo debug e serve apenas para
-> desenvolvimento — não o exponha na internet.
+### Variáveis de ambiente
+
+| Variável | Para que serve |
+|---|---|
+| `SECRET_KEY` | Assina a sessão e os tokens CSRF dos formulários. **Obrigatória** fora do modo debug — o app não inicia sem ela. |
+| `FLASK_DEBUG` | `1` liga o modo debug. Desligado por padrão. |
+| `BARBEARIA_DB` | Caminho do arquivo do banco SQLite (padrão: `barbearia.db`). |
+
+Para gerar uma `SECRET_KEY` forte:
+
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+> ⚠️ Nunca use `FLASK_DEBUG=1` em um servidor exposto na internet: o
+> debugger do Werkzeug permite executar código remotamente. O servidor
+> embutido do Flask serve apenas para desenvolvimento.
+
+Os formulários são protegidos contra CSRF com o Flask-WTF.
 
 ## 🧪 Testes
 
@@ -112,6 +140,7 @@ Os testes ficam em `tests/` e cobrem:
 | `test_models.py` | Cadastro e listagem de clientes e atendimentos |
 | `test_reports.py` | Faturamento total, cálculo/arredondamento de comissões e ranking de serviços |
 | `test_app.py` | Rotas Flask: páginas carregam, formulários cadastram e redirecionam |
+| `test_security.py` | `SECRET_KEY` obrigatória, debug desligado por padrão e proteção CSRF |
 
 Cada teste roda em um banco SQLite temporário (veja `tests/conftest.py`),
 então o seu `barbearia.db` nunca é alterado pelos testes.
