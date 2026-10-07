@@ -29,8 +29,9 @@ def faturamento_total(barbearia_id):
 def comissoes_por_barbeiro(barbearia_id, barbeiro_id=None):
     """
     Calcula o total faturado e a comissão devida a cada barbeiro da
-    barbearia, com base no percentual de comissão configurado. Com
-    barbeiro_id, retorna só a linha daquele barbeiro.
+    barbearia. A comissão de cada atendimento usa o percentual gravado
+    nele no momento do registro; comissao_percentual é o percentual atual
+    do barbeiro. Com barbeiro_id, retorna só a linha daquele barbeiro.
     """
     filtro = ""
     parametros = (barbearia_id,)
@@ -45,7 +46,10 @@ def comissoes_por_barbeiro(barbearia_id, barbeiro_id=None):
             barbeiros.id AS barbeiro_id,
             barbeiros.nome AS barbeiro,
             barbeiros.comissao_percentual,
-            COALESCE(SUM(atendimentos.valor_cobrado), 0) AS total_faturado
+            COALESCE(SUM(atendimentos.valor_cobrado), 0) AS total_faturado,
+            COALESCE(SUM(
+                atendimentos.valor_cobrado * atendimentos.comissao_percentual / 100
+            ), 0) AS comissao_valor
         FROM barbeiros
         LEFT JOIN atendimentos
             ON atendimentos.barbeiro_id = barbeiros.id
@@ -60,13 +64,12 @@ def comissoes_por_barbeiro(barbearia_id, barbeiro_id=None):
 
     relatorio = []
     for linha in resultado:
-        comissao = linha["total_faturado"] * (linha["comissao_percentual"] / 100)
         relatorio.append({
             "barbeiro_id": linha["barbeiro_id"],
             "barbeiro": linha["barbeiro"],
             "total_faturado": linha["total_faturado"],
             "comissao_percentual": linha["comissao_percentual"],
-            "comissao_valor": round(comissao, 2),
+            "comissao_valor": round(linha["comissao_valor"], 2),
         })
     return relatorio
 

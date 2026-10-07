@@ -181,7 +181,8 @@ def listar_atendimentos(barbearia_id, barbeiro_id=None):
             servicos.nome AS servico,
             atendimentos.data_hora,
             atendimentos.valor_cobrado,
-            atendimentos.forma_pagamento
+            atendimentos.forma_pagamento,
+            atendimentos.comissao_percentual
         FROM atendimentos
         JOIN clientes ON clientes.id = atendimentos.cliente_id
         JOIN barbeiros ON barbeiros.id = atendimentos.barbeiro_id
@@ -199,6 +200,9 @@ def criar_atendimento(barbearia_id, cliente_id, barbeiro_id, servico_id, valor_c
     """
     Registra um atendimento. O cliente, o barbeiro e o serviço precisam ser
     da mesma barbearia; senão, levanta ValueError e nada é gravado.
+
+    O percentual de comissão do barbeiro é copiado para o atendimento, para
+    que mudar a comissão depois não altere os atendimentos já registrados.
     """
     conn = get_connection()
     try:
@@ -219,11 +223,12 @@ def criar_atendimento(barbearia_id, cliente_id, barbeiro_id, servico_id, valor_c
             """
             INSERT INTO atendimentos
                 (barbearia_id, cliente_id, barbeiro_id, servico_id,
-                 valor_cobrado, forma_pagamento)
-            VALUES (?, ?, ?, ?, ?, ?)
+                 valor_cobrado, forma_pagamento, comissao_percentual)
+            SELECT ?, ?, ?, ?, ?, ?, comissao_percentual
+            FROM barbeiros WHERE id = ?
             """,
             (barbearia_id, cliente_id, barbeiro_id, servico_id,
-             valor_cobrado, forma_pagamento),
+             valor_cobrado, forma_pagamento, barbeiro_id),
         )
         conn.commit()
     finally:

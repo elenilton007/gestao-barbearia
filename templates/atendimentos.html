@@ -53,6 +53,7 @@
                 <th>Data/Hora</th>
                 <th>Valor</th>
                 <th>Pagamento</th>
+                <th>Comissão</th>
             </tr>
         </thead>
         <tbody>
@@ -64,6 +65,7 @@
                 <td>{{ atendimento.data_hora }}</td>
                 <td>R$ {{ "%.2f"|format(atendimento.valor_cobrado) }}</td>
                 <td>{{ atendimento.forma_pagamento }}</td>
+                <td>{{ atendimento.comissao_percentual }}% (R$ {{ "%.2f"|format(atendimento.valor_cobrado * atendimento.comissao_percentual / 100) }})</td>
             </tr>
             {% endfor %}
         </tbody>
