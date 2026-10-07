@@ -19,13 +19,13 @@ Depois de duas décadas gerindo um negócio próprio (fluxo de caixa, comissão 
 | Arquivo/Pasta | Responsabilidade |
 |---|---|
 | `schema.sql` | Estrutura do banco de dados (barbearias, clientes, barbeiros, serviços, atendimentos) |
-| `schema_usuarios.sql` | Tabela de usuários de login (aplicada sem apagar dados) |
+| `schema_usuarios.sql` | Tabelas de usuários de login e de tentativas de login erradas (aplicadas sem apagar dados) |
 | `database.py` | Camada de conexão, inicialização e atualização de bancos antigos (SQLite) |
 | `models.py` | Operações de CRUD das entidades e autenticação de usuários, sempre filtradas por barbearia |
 | `criar_usuario.py` | Linha de comando para cadastrar usuários (dono ou barbeiro) e barbearias novas |
 | `reports.py` | Consultas SQL avançadas: faturamento, comissões, ranking de serviços/clientes, por barbearia |
 | `app.py` | Aplicação web Flask (rotas, páginas, login e permissões) |
-| `templates/` | Páginas HTML (login, dashboard, clientes, atendimentos, relatórios) |
+| `templates/` | Páginas HTML (login, troca de senha, dashboard, clientes, atendimentos, relatórios) |
 | `static/style.css` | Estilo visual da aplicação |
 | `tests/` | Testes automatizados (models, relatórios e rotas Flask) |
 
@@ -40,6 +40,13 @@ Depois de duas décadas gerindo um negócio próprio (fluxo de caixa, comissão 
   - **dono** — acesso total à própria barbearia: faturamento, comissões de todos, relatórios
   - **barbeiro** — vê só os próprios atendimentos e a própria comissão;
     registra atendimentos apenas em seu nome e não acessa os relatórios
+- **Login protegido**:
+  - depois de **5 senhas erradas seguidas** o usuário fica bloqueado por
+    **15 minutos** (nem a senha certa entra nesse tempo); o login certo
+    zera a contagem
+  - a sessão **expira após 30 minutos sem uso** (configurável)
+  - o dono troca a própria senha em **Trocar senha**, no menu; as sessões
+    abertas em outros aparelhos são encerradas
 - **Dashboard gerencial**: faturamento do mês, ticket médio, top serviços, top clientes, comissões
 - **Cadastro de clientes**
 - **Registro de atendimentos**: vincula cliente, barbeiro, serviço e forma de pagamento
@@ -136,6 +143,10 @@ O nome de usuário é único no sistema todo, mesmo entre barbearias
 diferentes. Ainda não há tela nem comando para cadastrar barbeiros e
 serviços de uma barbearia nova (veja o [SAAS_ROADMAP.md](SAAS_ROADMAP.md)).
 
+> 🔒 **Usuário bloqueado por senha errada?** Espere 15 minutos e tente de
+> novo. Ainda não há recuperação de senha esquecida (veja o
+> [SAAS_ROADMAP.md](SAAS_ROADMAP.md)).
+
 > 💡 **Já tem um `barbearia.db` com dados?** Não rode `python database.py`
 > de novo. O `criar_usuario.py` e o `app.py` atualizam o banco existente
 > sem apagar nada: criam a tabela de usuários, se faltar, e colocam todos
@@ -168,6 +179,7 @@ criado no passo 5.
 | `SECRET_KEY` | Assina a sessão de login e os tokens CSRF dos formulários. **Obrigatória** fora do modo debug — o app não inicia sem ela. |
 | `FLASK_DEBUG` | `1` liga o modo debug. Desligado por padrão. |
 | `BARBEARIA_DB` | Caminho do arquivo do banco SQLite (padrão: `barbearia.db`). |
+| `SESSAO_INATIVIDADE_MINUTOS` | Minutos sem uso até o login expirar (padrão: `30`). |
 
 Para gerar uma `SECRET_KEY` forte:
 
@@ -197,6 +209,7 @@ Os testes ficam em `tests/` e cobrem:
 | `test_auth.py` | Login/logout, páginas bloqueadas sem login, dono vê tudo, barbeiro vê só as próprias comissões e atendimentos |
 | `test_barbearias.py` | Uma barbearia não vê nem altera os dados da outra (listas, relatórios, páginas e formulários) e atualização de banco antigo |
 | `test_criar_usuario.py` | Script `criar_usuario.py`: validações, barbearia nova ou informada e criação da tabela em banco antigo sem perder dados |
+| `test_login_seguro.py` | Bloqueio após 5 senhas erradas, troca de senha pelo dono e expiração da sessão por inatividade |
 | `test_security.py` | `SECRET_KEY` obrigatória, debug desligado por padrão e proteção CSRF |
 
 O GitHub Actions roda esses testes a cada push e pull request
