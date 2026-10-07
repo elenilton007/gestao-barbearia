@@ -60,8 +60,8 @@ def criar_barbearia_com_dono(nome, usuario, senha):
     conn = get_connection()
     try:
         barbearia_id = conn.execute(
-            "INSERT INTO barbearias (nome) VALUES (?)", (nome,)
-        ).lastrowid
+            "INSERT INTO barbearias (nome) VALUES (?) RETURNING id", (nome,)
+        ).fetchone()[0]
         conn.execute(
             """
             INSERT INTO usuarios (barbearia_id, usuario, senha_hash, papel)
@@ -117,6 +117,14 @@ def _numero(valor, mensagem, minimo, maximo=None, tipo=float):
     return numero
 
 
+def _id(valor, nome):
+    """Converte o id vindo do formulário; texto que não é número dá ValueError."""
+    try:
+        return int(valor)
+    except (TypeError, ValueError):
+        raise ValueError(f"{nome} {valor} não existe nesta barbearia.") from None
+
+
 def _definir_ativo(tabela, barbearia_id, registro_id, ativo):
     conn = get_connection()
     conn.execute(
@@ -170,9 +178,10 @@ def criar_barbeiro(barbearia_id, nome, comissao_percentual=40.0):
         """
         INSERT INTO barbeiros (barbearia_id, nome, comissao_percentual)
         VALUES (?, ?, ?)
+        RETURNING id
         """,
         (barbearia_id, nome, comissao_percentual),
-    ).lastrowid
+    ).fetchone()[0]
     conn.commit()
     conn.close()
     return barbeiro_id
@@ -244,9 +253,10 @@ def criar_servico(barbearia_id, nome, preco, duracao_minutos=30):
         """
         INSERT INTO servicos (barbearia_id, nome, preco, duracao_minutos)
         VALUES (?, ?, ?, ?)
+        RETURNING id
         """,
         (barbearia_id, nome, preco, duracao_minutos),
-    ).lastrowid
+    ).fetchone()[0]
     conn.commit()
     conn.close()
     return servico_id
@@ -315,6 +325,12 @@ def criar_atendimento(barbearia_id, cliente_id, barbeiro_id, servico_id, valor_c
     O percentual de comissão do barbeiro é copiado para o atendimento, para
     que mudar a comissão depois não altere os atendimentos já registrados.
     """
+    cliente_id = _id(cliente_id, "Cliente")
+    barbeiro_id = _id(barbeiro_id, "Barbeiro")
+    servico_id = _id(servico_id, "Serviço")
+    valor_cobrado = _numero(
+        valor_cobrado, "O valor cobrado precisa ser um número maior ou igual a zero.", 0
+    )
     conn = get_connection()
     try:
         for tabela, nome, registro_id in (
@@ -358,16 +374,17 @@ def _validar_papel(barbearia_id, papel, barbeiro_id):
         return None
     if barbeiro_id in (None, ""):
         raise ValueError("Usuário barbeiro precisa de um barbeiro_id.")
+    barbeiro_id = _id(barbeiro_id, "Barbeiro")
     if buscar_barbeiro(barbearia_id, barbeiro_id) is None:
         raise ValueError(f"Barbeiro {barbeiro_id} não existe nesta barbearia.")
-    return int(barbeiro_id)
+    return barbeiro_id
 
 
 def criar_usuario(barbearia_id, usuario, senha, papel, barbeiro_id=None):
     """
     Cadastra um usuário da barbearia com a senha guardada em hash. Usuário
     do papel 'barbeiro' precisa estar vinculado a um barbeiro da mesma
-    barbearia. Nome de usuário repetido levanta sqlite3.IntegrityError.
+    barbearia. Nome de usuário repetido levanta database.IntegrityError.
     """
     usuario = _validar_nome(usuario, "O nome de usuário")
     if papel not in PAPEIS:

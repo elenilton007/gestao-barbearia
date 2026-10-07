@@ -17,7 +17,6 @@ import hashlib
 import math
 import os
 import secrets
-import sqlite3
 import time
 
 from flask import (
@@ -459,7 +458,7 @@ def novo_usuario():
         )
     except ValueError as erro:
         flash(str(erro))
-    except sqlite3.IntegrityError:
+    except database.IntegrityError:
         flash(f"Já existe um usuário chamado {usuario.strip()!r}.")
     return redirect(url_for("usuarios"))
 

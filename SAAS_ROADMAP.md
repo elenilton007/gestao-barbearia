@@ -42,17 +42,17 @@ pelas telas, e rodar `python database.py` **apaga todos os dados**
      formulários (Flask-WTF).~~ Feito.
    - ~~Remover `debug=True` em produção.~~ Feito: o debug só liga com
      `FLASK_DEBUG=1`.
-   - Validar entradas: hoje `valor_cobrado` aceita qualquer texto, IDs não
-     são checados e o SQLite está com chaves estrangeiras desligadas
+   - Validar entradas: ~~`valor_cobrado` aceita qualquer texto, IDs não
+     são checados~~ (feito: são convertidos e conferidos) e o SQLite está com chaves estrangeiras desligadas
      (`PRAGMA foreign_keys = ON` não é executado).
    - ~~Rate limit no login.~~ Feito: 5 erros seguidos bloqueiam o
      usuário por 15 minutos. ~~Expiração da sessão.~~ Feito: 30 minutos
      sem uso.
    - HTTPS e cookie `Secure`.
 4. **Banco de produção e migrações**
-   - Migrar para PostgreSQL (SQLite não aguenta bem vários clientes
-     escrevendo ao mesmo tempo).
-   - Separar o schema dos dados de exemplo e usar migrações versionadas
+   - ~~Migrar para PostgreSQL~~ Feito: com `DATABASE_URL`, o sistema usa
+     o PostgreSQL (Neon em produção); o SQLite fica para o desenvolvimento.
+   - ~~Separar o schema dos dados de exemplo~~ (feito: `dados_exemplo.sql`) e usar migrações versionadas
      (Alembic) em vez de `DROP TABLE` + `CREATE TABLE`.
    - Guardar dinheiro como `NUMERIC`/centavos inteiros, não `REAL`
      (ponto flutuante gera erro de arredondamento em comissões).
@@ -92,10 +92,11 @@ Concorrentes (Trinks, AppBarber, Booksy, Avec etc.) já oferecem:
 
 ## 🟡 Operação e infraestrutura
 
-- Servidor WSGI de produção (Gunicorn) atrás de Nginx, ou PaaS
-  (Render, Railway, Fly.io); `Dockerfile` e `docker-compose`.
+- ~~Servidor WSGI de produção (Gunicorn) num PaaS~~ Feito: Render (plano
+  Free) com Gunicorn, `render.yaml` e passo a passo no README.
+  Falta: `Dockerfile` e `docker-compose`.
 - Configuração por variáveis de ambiente (12-factor) e arquivo `.env.example`.
-- CI (GitHub Actions) rodando os testes a cada push.
+- ~~CI (GitHub Actions) rodando os testes a cada push.~~ Feito, no SQLite e no PostgreSQL.
 - Logs estruturados e monitoramento de erros (Sentry), uptime check.
 - Onboarding: cadastro da barbearia → assistente inicial para criar
   serviços e barbeiros → importação de clientes por planilha.

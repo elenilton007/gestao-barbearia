@@ -20,14 +20,17 @@ Depois de duas décadas gerindo um negócio próprio (fluxo de caixa, comissão 
 |---|---|
 | `schema.sql` | Estrutura do banco de dados (barbearias, clientes, barbeiros, serviços, atendimentos) |
 | `schema_usuarios.sql` | Tabelas de usuários de login e de tentativas de login erradas (aplicadas sem apagar dados) |
-| `database.py` | Camada de conexão, inicialização e atualização de bancos antigos (SQLite) |
+| `dados_exemplo.sql` | Dados de exemplo (Barbearia Exemplo), usados só pelo `python database.py` |
+| `database.py` | Camada de conexão (SQLite local ou PostgreSQL via `DATABASE_URL`), inicialização e atualização de bancos antigos |
+| `preparar_banco.py` | Roda a cada deploy: cria as tabelas no banco vazio (sem apagar nada) e o primeiro dono |
+| `render.yaml` | Blueprint do Render: web service no plano Free com Gunicorn |
 | `models.py` | Operações de CRUD das entidades e autenticação de usuários, sempre filtradas por barbearia |
 | `criar_usuario.py` | Linha de comando para cadastrar usuários (dono ou barbeiro) e barbearias novas |
 | `reports.py` | Consultas SQL avançadas: faturamento, comissões, ranking de serviços/clientes, por barbearia |
 | `app.py` | Aplicação web Flask (rotas, páginas, login e permissões) |
 | `templates/` | Páginas HTML (login, troca de senha, dashboard, clientes, atendimentos, relatórios, barbeiros, serviços, usuários) |
 | `static/style.css` | Estilo visual da aplicação |
-| `tests/` | Testes automatizados (models, relatórios e rotas Flask) |
+| `tests/` | Testes automatizados (models, relatórios, rotas Flask e deploy) |
 
 ## 📊 Funcionalidades
 
@@ -104,7 +107,9 @@ python database.py
 ```
 
 Cria o arquivo `barbearia.db` com uma barbearia de exemplo (*Barbearia
-Exemplo*) e os barbeiros, serviços e clientes dela.
+Exemplo*) e os barbeiros, serviços e clientes dela (`dados_exemplo.sql`).
+No desenvolvimento local o banco é sempre o SQLite: não defina a
+`DATABASE_URL`.
 
 > ⚠️ Este comando **recria o banco do zero e apaga todos os dados**
 > existentes. Rode-o apenas na primeira instalação.
@@ -190,6 +195,9 @@ criado no passo 5.
 | `SECRET_KEY` | Assina a sessão de login e os tokens CSRF dos formulários. **Obrigatória** fora do modo debug — o app não inicia sem ela. |
 | `FLASK_DEBUG` | `1` liga o modo debug. Desligado por padrão. |
 | `BARBEARIA_DB` | Caminho do arquivo do banco SQLite (padrão: `barbearia.db`). |
+| `DATABASE_URL` | Connection string de um PostgreSQL (ex.: Neon). Definida, o sistema usa o PostgreSQL em vez do SQLite. Deixe vazia no desenvolvimento local. |
+| `DONO_USUARIO` / `DONO_SENHA` | Só no deploy: `preparar_banco.py` cria o primeiro dono com eles se o banco ainda não tiver usuários. |
+| `BARBEARIA_NOME` | Só no deploy: nome da barbearia criada junto com o primeiro dono (padrão: `Minha Barbearia`). |
 | `SESSAO_INATIVIDADE_MINUTOS` | Minutos sem uso até o login expirar (padrão: `30`). |
 
 Para gerar uma `SECRET_KEY` forte:
@@ -203,6 +211,114 @@ python -c "import secrets; print(secrets.token_hex(32))"
 > embutido do Flask serve apenas para desenvolvimento.
 
 Os formulários são protegidos contra CSRF com o Flask-WTF.
+
+## ☁️ Deploy gratuito (Render + Neon)
+
+O sistema roda de graça na internet com:
+
+- **Render** (plano *Free*): hospeda o app Flask com o **Gunicorn**;
+- **Neon** (plano *Free*): banco **PostgreSQL**, ligado ao app pela
+  variável `DATABASE_URL`.
+
+No seu computador nada muda: sem `DATABASE_URL`, o app continua usando o
+SQLite (`barbearia.db`).
+
+### 1. Criar o banco no Neon
+
+1. Entre em **https://neon.tech** e clique em **Sign up** (dá para entrar
+   com a conta do GitHub).
+2. Em **Create project**: dê um nome (ex.: `gestao-barbearia`), escolha a
+   versão do Postgres (a padrão serve) e a região mais perto dos usuários
+   (ex.: **AWS São Paulo – sa-east-1**, se aparecer; senão **US East**).
+   Clique em **Create project**.
+3. No painel do projeto, clique em **Connect** (botão no topo). Deixe o
+   banco `neondb` e copie a **connection string**, que tem este formato:
+
+   ```
+   postgresql://neondb_owner:SENHA@ep-xxxx-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require
+   ```
+
+   Guarde-a: ela é a `DATABASE_URL`. Não coloque essa string no código nem
+   no GitHub — ela contém a senha do banco.
+
+> As tabelas **não** precisam ser criadas à mão no Neon: o
+> `preparar_banco.py` cria tudo no primeiro deploy.
+
+### 2. Criar o web service no Render (pelo Blueprint)
+
+1. Entre em **https://render.com** e clique em **Get Started** / **Sign
+   in with GitHub**. Autorize o Render a ver o repositório
+   `gestao-barbearia`.
+2. No painel (Dashboard), clique em **+ New** → **Blueprint**.
+3. Escolha o repositório **gestao-barbearia** e clique em **Connect**. O
+   Render lê o `render.yaml` e mostra o serviço `gestao-barbearia` (web,
+   plano Free).
+4. Preencha as variáveis que ele pede (`sync: false` no `render.yaml`):
+
+   | Variável | O que colocar |
+   |---|---|
+   | `DATABASE_URL` | A connection string copiada do Neon |
+   | `DONO_USUARIO` | O login do dono (ex.: `elenilton`) |
+   | `DONO_SENHA` | A senha do dono (mínimo de 8 caracteres) |
+   | `BARBEARIA_NOME` | O nome da barbearia (opcional) |
+
+   A `SECRET_KEY` não aparece: o Render gera uma aleatória sozinho.
+5. Clique em **Apply** (ou **Deploy Blueprint**). Acompanhe em **Logs**: no
+   primeiro deploy aparecem as linhas `Tabelas criadas no PostgreSQL` e
+   `Barbearia '...' criada com o dono '...'`, e depois o Gunicorn
+   (`Listening at: http://0.0.0.0:...`).
+6. Abra o endereço mostrado no topo da página do serviço
+   (`https://gestao-barbearia-xxxx.onrender.com`) e entre com o
+   `DONO_USUARIO` e a `DONO_SENHA`.
+
+Depois do primeiro login:
+
+- troque a senha em **Trocar senha** (a do painel do Render só é usada
+  enquanto o banco não tem nenhum usuário) e, se quiser, apague
+  `DONO_SENHA` em **Environment** no Render;
+- cadastre barbeiros, serviços e usuários pelas telas.
+
+### Como o deploy funciona
+
+| Etapa | Comando (no `render.yaml`) |
+|---|---|
+| Build | `pip install -r requirements.txt` |
+| Start | `python preparar_banco.py && gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 60` |
+
+O `preparar_banco.py` roda a cada deploy e **nunca apaga dados**: banco
+vazio ganha as tabelas (sem a Barbearia Exemplo); banco que já existe só
+recebe as atualizações. Com `autoDeploy: true`, cada push na `main` faz
+um deploy novo.
+
+> ⚠️ Nunca rode `python database.py` com a `DATABASE_URL` do Neon
+> definida: ele **recria o banco do zero e apaga todos os dados**.
+
+### Limites do plano gratuito
+
+- O web service Free do Render **"dorme" depois de 15 minutos sem
+  acesso**; o primeiro acesso depois disso demora uns 30–60 segundos.
+- O Neon Free também suspende o banco quando ninguém usa e acorda sozinho
+  na primeira consulta; os dados ficam guardados.
+- Use o Neon, e não o PostgreSQL gratuito do próprio Render, que expira
+  depois de um tempo.
+
+### Usar o banco do Neon pela linha de comando (opcional)
+
+Com a `DATABASE_URL` definida no terminal, o `criar_usuario.py` grava
+direto no Neon (ex.: para criar outra barbearia):
+
+```bash
+DATABASE_URL="postgresql://...neon.tech/neondb?sslmode=require" \
+  python criar_usuario.py dono maria --nova-barbearia "Barbearia da Maria"
+```
+
+Windows (PowerShell):
+
+```powershell
+$env:DATABASE_URL="postgresql://...neon.tech/neondb?sslmode=require"
+python criar_usuario.py dono maria --nova-barbearia "Barbearia da Maria"
+Remove-Item Env:DATABASE_URL   # volta a usar o SQLite local
+```
 
 ## 🧪 Testes
 
@@ -224,19 +340,31 @@ Os testes ficam em `tests/` e cobrem:
 | `test_login_seguro.py` | Bloqueio após 5 senhas erradas, troca de senha pelo dono e expiração da sessão por inatividade |
 | `test_comissao_gravada.py` | Percentual de comissão gravado no atendimento: mudar a comissão do barbeiro não altera os atendimentos antigos, e banco antigo recebe a coluna |
 | `test_security.py` | `SECRET_KEY` obrigatória, debug desligado por padrão e proteção CSRF |
+| `test_deploy.py` | `DATABASE_URL` (SQLite x PostgreSQL), tradução do SQL para o PostgreSQL, `preparar_banco.py` (não apaga dados, cria o primeiro dono) e `render.yaml` |
 
 O GitHub Actions roda esses testes a cada push e pull request
 (`.github/workflows/testes.yml`). O selo no topo deste README mostra
 o resultado da última execução na `main`.
 
 Cada teste roda em um banco SQLite temporário (veja `tests/conftest.py`),
-então o seu `barbearia.db` nunca é alterado pelos testes.
+então o seu `barbearia.db` nunca é alterado pelos testes. Os testes nunca
+usam a `DATABASE_URL`, para não apagar o banco de produção por engano.
+
+Para rodar os mesmos testes num PostgreSQL **de teste** (ele é apagado a
+cada teste), use a variável `TEST_DATABASE_URL`:
+
+```bash
+TEST_DATABASE_URL=postgresql://postgres:postgres@localhost/barbearia_teste pytest -v
+```
+
+O GitHub Actions roda os testes nos dois bancos: SQLite e PostgreSQL 16.
 
 ## 🔧 Tecnologias
 
 - Python 3
 - Flask
-- SQLite (SQL puro, sem ORM — para deixar as queries explícitas)
+- SQLite no desenvolvimento e PostgreSQL em produção (SQL puro, sem ORM — para deixar as queries explícitas)
+- Gunicorn (servidor de produção) no Render e PostgreSQL no Neon
 - Jinja2 (templates HTML)
 - Pytest (testes automatizados)
 

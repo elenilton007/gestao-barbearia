@@ -1,0 +1,30 @@
+# render.yaml — Blueprint do Render (https://render.com/docs/blueprint-spec)
+#
+# Web service no plano Free com Gunicorn. O banco é um PostgreSQL do Neon
+# (plano gratuito), informado na variável DATABASE_URL. Passo a passo no
+# README, seção "Deploy gratuito (Render + Neon)".
+services:
+  - type: web
+    name: gestao-barbearia
+    runtime: python
+    plan: free
+    branch: main
+    autoDeploy: true
+    buildCommand: pip install -r requirements.txt
+    # preparar_banco.py cria as tabelas no primeiro deploy e só atualiza
+    # depois (nunca apaga dados). Em seguida o Gunicorn sobe o app Flask.
+    startCommand: python preparar_banco.py && gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 60
+    healthCheckPath: /login
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13.5"
+      - key: SECRET_KEY
+        generateValue: true  # o Render gera uma chave aleatória
+      - key: DATABASE_URL
+        sync: false  # o Render pede no painel: cole a connection string do Neon
+      - key: DONO_USUARIO
+        sync: false  # nome de login do primeiro dono
+      - key: DONO_SENHA
+        sync: false  # senha do primeiro dono (mínimo de 8 caracteres)
+      - key: BARBEARIA_NOME
+        sync: false  # nome da barbearia (opcional)

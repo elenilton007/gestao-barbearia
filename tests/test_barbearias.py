@@ -99,9 +99,7 @@ def test_usuario_em_barbearia_inexistente_e_recusado():
 
 
 def test_barbearia_nova_nao_e_criada_se_o_dono_falhar():
-    import sqlite3
-
-    with pytest.raises(sqlite3.IntegrityError):
+    with pytest.raises(database.IntegrityError):
         models.criar_barbearia_com_dono("Repetida", "dono", "senha-forte")
     with pytest.raises(ValueError, match="pelo menos 8"):
         models.criar_barbearia_com_dono("Senha Curta", "novo-dono", "curta")
