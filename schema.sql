@@ -59,6 +59,9 @@ CREATE TABLE atendimentos (
     data_hora TEXT NOT NULL DEFAULT (datetime('now')),
     valor_cobrado REAL NOT NULL,
     forma_pagamento TEXT NOT NULL DEFAULT 'dinheiro',
+    -- Percentual de comissão do barbeiro no momento do registro: mudar a
+    -- comissão do barbeiro depois não altera os atendimentos já feitos.
+    comissao_percentual REAL NOT NULL,
     FOREIGN KEY (barbearia_id) REFERENCES barbearias (id),
     FOREIGN KEY (cliente_id) REFERENCES clientes (id),
     FOREIGN KEY (barbeiro_id) REFERENCES barbeiros (id),

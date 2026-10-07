@@ -58,7 +58,7 @@ Depois de duas décadas gerindo um negócio próprio (fluxo de caixa, comissão 
   próprio papel, e a barbearia nunca fica sem um dono ativo
 - **Registro de atendimentos**: vincula cliente, barbeiro, serviço e forma de pagamento
 - **Relatórios**: faturamento mensal histórico, ranking de serviços e clientes
-- **Cálculo automático de comissão** por barbeiro, baseado em percentual individual
+- **Cálculo automático de comissão** por barbeiro, baseado em percentual individual; o percentual é gravado em cada atendimento, então mudar a comissão não altera os atendimentos antigos
 
 ## ▶️ Instalação e execução
 
@@ -222,6 +222,7 @@ Os testes ficam em `tests/` e cobrem:
 | `test_barbearias.py` | Uma barbearia não vê nem altera os dados da outra (listas, relatórios, páginas e formulários) e atualização de banco antigo |
 | `test_criar_usuario.py` | Script `criar_usuario.py`: validações, barbearia nova ou informada e criação da tabela em banco antigo sem perder dados |
 | `test_login_seguro.py` | Bloqueio após 5 senhas erradas, troca de senha pelo dono e expiração da sessão por inatividade |
+| `test_comissao_gravada.py` | Percentual de comissão gravado no atendimento: mudar a comissão do barbeiro não altera os atendimentos antigos, e banco antigo recebe a coluna |
 | `test_security.py` | `SECRET_KEY` obrigatória, debug desligado por padrão e proteção CSRF |
 
 O GitHub Actions roda esses testes a cada push e pull request

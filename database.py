@@ -76,6 +76,27 @@ def _separar_por_barbearia(conn):
         )
 
 
+def _gravar_comissao_nos_atendimentos(conn):
+    """
+    Banco criado antes de o atendimento guardar o percentual de comissão:
+    cria a coluna e preenche os atendimentos antigos com o percentual
+    atual do barbeiro (o único que se conhece).
+    """
+    colunas = _colunas(conn, "atendimentos")
+    if not colunas or "comissao_percentual" in colunas:
+        return
+    conn.execute(
+        "ALTER TABLE atendimentos ADD COLUMN comissao_percentual REAL NOT NULL DEFAULT 0"
+    )
+    conn.execute(
+        """
+        UPDATE atendimentos SET comissao_percentual = COALESCE(
+            (SELECT barbeiros.comissao_percentual FROM barbeiros
+             WHERE barbeiros.id = atendimentos.barbeiro_id), 0)
+        """
+    )
+
+
 # Tabelas cujos registros são desativados em vez de apagados.
 TABELAS_COM_ATIVO = ("barbeiros", "servicos", "usuarios")
 
@@ -92,11 +113,13 @@ def _adicionar_coluna_ativo(conn):
 def atualizar_banco():
     """
     Atualiza um banco antigo sem apagar nada: separa os dados por
-    barbearia, cria a tabela de usuários e a coluna ativo, se ainda não
-    existirem. Pode ser executada várias vezes.
+    barbearia, grava a comissão em cada atendimento e cria a tabela de
+    usuários e a coluna ativo, se ainda não existirem. Pode ser executada
+    várias vezes.
     """
     conn = get_connection()
     _separar_por_barbearia(conn)
+    _gravar_comissao_nos_atendimentos(conn)
     conn.commit()
     conn.close()
     _executar_script("schema_usuarios.sql")
