@@ -127,10 +127,26 @@ def test_troca_de_senha_exige_login(client_anonimo):
     assert resposta.headers["Location"].endswith("/login")
 
 
-def test_barbeiro_nao_acessa_troca_de_senha(client_barbeiro):
-    assert client_barbeiro.get("/conta/senha").status_code == 403
-    assert _trocar(client_barbeiro, "senha-do-joao").status_code == 403
-    assert "Trocar senha" not in client_barbeiro.get("/").get_data(as_text=True)
+def test_barbeiro_ve_a_troca_de_senha(client_barbeiro):
+    assert client_barbeiro.get("/conta/senha").status_code == 200
+    assert "Trocar senha" in client_barbeiro.get("/").get_data(as_text=True)
+
+
+def test_barbeiro_troca_a_propria_senha(client_barbeiro):
+    resposta = _trocar(client_barbeiro, "senha-do-joao")
+    assert resposta.status_code == 302
+    assert client_barbeiro.get("/").status_code == 200  # segue logado
+    assert models.autenticar("joao", "senha-do-joao") is None
+    assert models.autenticar("joao", "senha-nova-123") is not None
+    # A senha do dono não muda.
+    assert models.autenticar("dono", "senha-do-dono") is not None
+
+
+def test_barbeiro_com_senha_atual_errada_nao_troca(client_barbeiro):
+    # A senha do dono não serve para trocar a do barbeiro.
+    resposta = _trocar(client_barbeiro, "senha-do-dono")
+    assert resposta.status_code == 400
+    assert models.autenticar("joao", "senha-do-joao") is not None
 
 
 def test_troca_de_senha_certa(client):
