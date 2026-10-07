@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>🔑 Editar Usuário</h2>
+
+<div class="card">
+    <h3>{{ usuario.usuario }}</h3>
+    <form method="POST" action="{{ url_for('editar_usuario', usuario_id=usuario.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="papel">Papel:</label>
+        <select id="papel" name="papel">
+            {% for papel in papeis %}
+            <option value="{{ papel }}" {{ "selected" if papel == usuario.papel }}>{{ papel }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="barbeiro_id">Barbeiro vinculado (só para o papel barbeiro):</label>
+        <select id="barbeiro_id" name="barbeiro_id">
+            <option value="">—</option>
+            {% for barbeiro in barbeiros %}
+            <option value="{{ barbeiro.id }}" {{ "selected" if barbeiro.id == usuario.barbeiro_id }}>
+                {{ barbeiro.nome }}{{ "" if barbeiro.ativo else " (desativado)" }}
+            </option>
+            {% endfor %}
+        </select>
+
+        <label for="nova_senha">Nova senha (deixe em branco para manter a atual):</label>
+        <input type="password" id="nova_senha" name="nova_senha" minlength="8"
+               autocomplete="new-password">
+
+        <button type="submit">Salvar</button>
+    </form>
+    <p><a href="{{ url_for('usuarios') }}">Voltar</a></p>
+</div>
+{% endblock %}

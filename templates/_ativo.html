@@ -1,0 +1,11 @@
+{# Botão Desativar/Reativar de uma linha da tabela. Espera "registro" e "rota". #}
+<form method="POST" action="{{ rota }}" class="form-linha">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if registro.ativo %}
+    <input type="hidden" name="ativo" value="0">
+    <button type="submit">Desativar</button>
+    {% else %}
+    <input type="hidden" name="ativo" value="1">
+    <button type="submit">Reativar</button>
+    {% endif %}
+</form>

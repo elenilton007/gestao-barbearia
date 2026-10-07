@@ -25,7 +25,7 @@ Depois de duas décadas gerindo um negócio próprio (fluxo de caixa, comissão 
 | `criar_usuario.py` | Linha de comando para cadastrar usuários (dono ou barbeiro) e barbearias novas |
 | `reports.py` | Consultas SQL avançadas: faturamento, comissões, ranking de serviços/clientes, por barbearia |
 | `app.py` | Aplicação web Flask (rotas, páginas, login e permissões) |
-| `templates/` | Páginas HTML (login, dashboard, clientes, atendimentos, relatórios) |
+| `templates/` | Páginas HTML (login, dashboard, clientes, atendimentos, relatórios, barbeiros, serviços, usuários) |
 | `static/style.css` | Estilo visual da aplicação |
 | `tests/` | Testes automatizados (models, relatórios e rotas Flask) |
 
@@ -42,6 +42,13 @@ Depois de duas décadas gerindo um negócio próprio (fluxo de caixa, comissão 
     registra atendimentos apenas em seu nome e não acessa os relatórios
 - **Dashboard gerencial**: faturamento do mês, ticket médio, top serviços, top clientes, comissões
 - **Cadastro de clientes**
+- **Cadastro de barbeiros, serviços e usuários** (só o dono, menus
+  *Barbeiros*, *Serviços* e *Usuários*): cadastrar, editar (nome, comissão,
+  preço, duração, papel, barbeiro vinculado, troca de senha) e desativar.
+  Nada é apagado: barbeiro ou serviço desativado some do registro de
+  atendimentos, mas continua no histórico e nos relatórios; usuário
+  desativado não consegue entrar. O dono não pode se desativar nem tirar o
+  próprio papel, e a barbearia nunca fica sem um dono ativo
 - **Registro de atendimentos**: vincula cliente, barbeiro, serviço e forma de pagamento
 - **Relatórios**: faturamento mensal histórico, ranking de serviços e clientes
 - **Cálculo automático de comissão** por barbeiro, baseado em percentual individual
@@ -111,8 +118,11 @@ pedida no terminal e precisa ter pelo menos 8 caracteres):
 python criar_usuario.py dono elenilton
 ```
 
-Para cada barbeiro, crie um usuário vinculado ao id dele na tabela
-`barbeiros` (rode sem `--barbeiro-id` para ver a lista de ids):
+Depois de entrar como dono, os barbeiros, os serviços e os outros
+usuários podem ser cadastrados pelas telas *Barbeiros*, *Serviços* e
+*Usuários*. Pela linha de comando também dá: para cada barbeiro, crie um
+usuário vinculado ao id dele na tabela `barbeiros` (rode sem
+`--barbeiro-id` para ver a lista de ids):
 
 ```bash
 python criar_usuario.py barbeiro joao --barbeiro-id 2
@@ -133,13 +143,14 @@ python criar_usuario.py barbeiro pedro --barbearia-id 2 --barbeiro-id 5
 ```
 
 O nome de usuário é único no sistema todo, mesmo entre barbearias
-diferentes. Ainda não há tela nem comando para cadastrar barbeiros e
-serviços de uma barbearia nova (veja o [SAAS_ROADMAP.md](SAAS_ROADMAP.md)).
+diferentes. Uma barbearia nova começa vazia: entre com o dono dela e
+cadastre os barbeiros, os serviços e os usuários pelas telas.
 
 > 💡 **Já tem um `barbearia.db` com dados?** Não rode `python database.py`
 > de novo. O `criar_usuario.py` e o `app.py` atualizam o banco existente
-> sem apagar nada: criam a tabela de usuários, se faltar, e colocam todos
-> os dados antigos numa barbearia chamada *Minha Barbearia*.
+> sem apagar nada: criam a tabela de usuários e a coluna `ativo`, se
+> faltarem, e colocam todos os dados antigos numa barbearia chamada
+> *Minha Barbearia*.
 
 ### 6. Rodar a aplicação
 
@@ -195,6 +206,7 @@ Os testes ficam em `tests/` e cobrem:
 | `test_reports.py` | Faturamento total, cálculo/arredondamento de comissões e ranking de serviços |
 | `test_app.py` | Rotas Flask: páginas carregam, formulários cadastram e redirecionam |
 | `test_auth.py` | Login/logout, páginas bloqueadas sem login, dono vê tudo, barbeiro vê só as próprias comissões e atendimentos |
+| `test_cadastros.py` | Telas de barbeiros, serviços e usuários: só o dono acessa, validações, edição, desativar/reativar, último dono ativo e isolamento entre barbearias |
 | `test_barbearias.py` | Uma barbearia não vê nem altera os dados da outra (listas, relatórios, páginas e formulários) e atualização de banco antigo |
 | `test_criar_usuario.py` | Script `criar_usuario.py`: validações, barbearia nova ou informada e criação da tabela em banco antigo sem perder dados |
 | `test_security.py` | `SECRET_KEY` obrigatória, debug desligado por padrão e proteção CSRF |
@@ -220,7 +232,7 @@ Veja **[SAAS_ROADMAP.md](SAAS_ROADMAP.md)** para a lista completa do que falta
 para oferecer o sistema como SaaS (multi-barbearia, login, agenda online,
 cobrança, LGPD, deploy). Destaques:
 
-- Tela para o dono cadastrar usuários e barbeiros (hoje é pela linha de comando)
+- Cadastro de barbearia pela web e troca de senha pelo próprio usuário
 - Agenda e agendamento online
 - Exportação de relatórios em PDF/Excel
 - Gráficos interativos no dashboard

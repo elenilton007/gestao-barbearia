@@ -10,6 +10,8 @@
 --   barbeiro -> vê só os próprios atendimentos e comissões; precisa estar
 --               vinculado a um registro da tabela barbeiros da mesma
 --               barbearia (models.criar_usuario confere isso)
+--
+-- Usuário desativado (ativo = 0) não consegue entrar.
 
 CREATE TABLE IF NOT EXISTS usuarios (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -18,6 +20,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
     senha_hash TEXT NOT NULL,
     papel TEXT NOT NULL CHECK (papel IN ('dono', 'barbeiro')),
     barbeiro_id INTEGER,
+    ativo INTEGER NOT NULL DEFAULT 1,
     criado_em TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (barbearia_id) REFERENCES barbearias (id),
     FOREIGN KEY (barbeiro_id) REFERENCES barbeiros (id),

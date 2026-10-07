@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>🔑 Usuários</h2>
+
+<div class="card">
+    <h3>Cadastrar Novo Usuário</h3>
+    <form method="POST" action="{{ url_for('novo_usuario') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="usuario">Usuário (para entrar no sistema):</label>
+        <input type="text" id="usuario" name="usuario" required>
+
+        <label for="senha">Senha (pelo menos 8 caracteres):</label>
+        <input type="password" id="senha" name="senha" minlength="8"
+               autocomplete="new-password" required>
+
+        <label for="papel">Papel:</label>
+        <select id="papel" name="papel">
+            {% for papel in papeis %}
+            <option value="{{ papel }}">{{ papel }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="barbeiro_id">Barbeiro vinculado (só para o papel barbeiro):</label>
+        <select id="barbeiro_id" name="barbeiro_id">
+            <option value="">—</option>
+            {% for barbeiro in barbeiros %}
+            <option value="{{ barbeiro.id }}">{{ barbeiro.nome }}</option>
+            {% endfor %}
+        </select>
+
+        <button type="submit">Cadastrar</button>
+    </form>
+</div>
+
+<div class="card">
+    <h3>Lista de Usuários</h3>
+    <p class="dica">Usuário desativado não consegue entrar. O dono vê tudo; o
+        barbeiro vê só os próprios atendimentos e comissões.</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Usuário</th>
+                <th>Papel</th>
+                <th>Barbeiro</th>
+                <th>Situação</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for usuario in usuarios %}
+            <tr class="{{ '' if usuario.ativo else 'inativo' }}">
+                <td>{{ usuario.usuario }}</td>
+                <td>{{ usuario.papel }}</td>
+                <td>{{ usuario.barbeiro or "-" }}</td>
+                <td>{{ "Ativo" if usuario.ativo else "Desativado" }}</td>
+                <td>
+                    <div class="acoes">
+                    <a href="{{ url_for('editar_usuario', usuario_id=usuario.id) }}">Editar</a>
+                    {% if usuario.id != g.usuario.id %}
+                    {% with registro=usuario, rota=url_for('ativar_usuario', usuario_id=usuario.id) %}
+                    {% include "_ativo.html" %}
+                    {% endwith %}
+                    {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
