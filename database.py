@@ -76,17 +76,34 @@ def _separar_por_barbearia(conn):
         )
 
 
+# Tabelas cujos registros são desativados em vez de apagados.
+TABELAS_COM_ATIVO = ("barbeiros", "servicos", "usuarios")
+
+
+def _adicionar_coluna_ativo(conn):
+    """Banco criado antes das telas de cadastro: todos começam ativos."""
+    for tabela in TABELAS_COM_ATIVO:
+        if "ativo" not in _colunas(conn, tabela):
+            conn.execute(
+                f"ALTER TABLE {tabela} ADD COLUMN ativo INTEGER NOT NULL DEFAULT 1"
+            )
+
+
 def atualizar_banco():
     """
     Atualiza um banco antigo sem apagar nada: separa os dados por
-    barbearia e cria a tabela de usuários, se ainda não existirem.
-    Pode ser executada várias vezes.
+    barbearia, cria a tabela de usuários e a coluna ativo, se ainda não
+    existirem. Pode ser executada várias vezes.
     """
     conn = get_connection()
     _separar_por_barbearia(conn)
     conn.commit()
     conn.close()
     _executar_script("schema_usuarios.sql")
+    conn = get_connection()
+    _adicionar_coluna_ativo(conn)
+    conn.commit()
+    conn.close()
 
 
 def init_db():

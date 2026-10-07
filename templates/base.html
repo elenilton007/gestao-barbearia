@@ -16,6 +16,9 @@
             {% if g.usuario.papel == "dono" %}
             <li><a href="{{ url_for('relatorios') }}">Relatórios</a></li>
             <li><a href="{{ url_for('trocar_senha') }}">Trocar senha</a></li>
+            <li><a href="{{ url_for('barbeiros') }}">Barbeiros</a></li>
+            <li><a href="{{ url_for('servicos') }}">Serviços</a></li>
+            <li><a href="{{ url_for('usuarios') }}">Usuários</a></li>
             {% endif %}
             <li class="usuario-logado">
                 {{ g.barbearia.nome }} · {{ g.usuario.usuario }} ({{ g.usuario.papel }})

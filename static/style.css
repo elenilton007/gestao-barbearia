@@ -146,3 +146,28 @@ button:hover {
     padding: 0.7rem 1rem;
     margin-bottom: 1rem;
 }
+
+.dica {
+    color: #666;
+    font-size: 0.85rem;
+    margin-bottom: 0.8rem;
+}
+
+.acoes {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.form-linha {
+    display: inline;
+}
+
+.form-linha button {
+    margin-top: 0;
+    padding: 0.3rem 0.7rem;
+}
+
+tr.inativo td {
+    color: #999;
+}
