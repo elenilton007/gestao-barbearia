@@ -18,23 +18,33 @@ def faturamento_total():
     return resultado["total"]
 
 
-def comissoes_por_barbeiro():
+def comissoes_por_barbeiro(barbeiro_id=None):
     """
     Calcula o total faturado e a comissão devida a cada barbeiro,
-    com base no percentual de comissão configurado.
+    com base no percentual de comissão configurado. Com barbeiro_id,
+    retorna só a linha daquele barbeiro.
     """
+    filtro = ""
+    parametros = ()
+    if barbeiro_id is not None:
+        filtro = "WHERE barbeiros.id = ?"
+        parametros = (barbeiro_id,)
+
     conn = get_connection()
     resultado = conn.execute(
-        """
+        f"""
         SELECT
+            barbeiros.id AS barbeiro_id,
             barbeiros.nome AS barbeiro,
             barbeiros.comissao_percentual,
             COALESCE(SUM(atendimentos.valor_cobrado), 0) AS total_faturado
         FROM barbeiros
         LEFT JOIN atendimentos ON atendimentos.barbeiro_id = barbeiros.id
+        {filtro}
         GROUP BY barbeiros.id
         ORDER BY total_faturado DESC
-        """
+        """,
+        parametros,
     ).fetchall()
     conn.close()
 
@@ -42,6 +52,7 @@ def comissoes_por_barbeiro():
     for linha in resultado:
         comissao = linha["total_faturado"] * (linha["comissao_percentual"] / 100)
         relatorio.append({
+            "barbeiro_id": linha["barbeiro_id"],
             "barbeiro": linha["barbeiro"],
             "total_faturado": linha["total_faturado"],
             "comissao_percentual": linha["comissao_percentual"],

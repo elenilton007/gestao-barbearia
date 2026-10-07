@@ -3,6 +3,7 @@
 -- Modelo relacional simples, normalizado, cobrindo clientes, serviços,
 -- barbeiros e atendimentos (agendamentos/vendas realizadas).
 
+DROP TABLE IF EXISTS usuarios;
 DROP TABLE IF EXISTS atendimentos;
 DROP TABLE IF EXISTS clientes;
 DROP TABLE IF EXISTS servicos;

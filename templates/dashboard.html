@@ -3,13 +3,15 @@
 {% block content %}
 <h2>📊 Dashboard</h2>
 
+{% if g.usuario.papel == "dono" %}
 <div class="card">
     <h3>Faturamento Total</h3>
     <p class="valor-destaque">R$ {{ "%.2f"|format(total) }}</p>
 </div>
+{% endif %}
 
 <div class="card">
-    <h3>Comissões por Barbeiro</h3>
+    <h3>{% if g.usuario.papel == "dono" %}Comissões por Barbeiro{% else %}Minhas Comissões{% endif %}</h3>
     <table>
         <thead>
             <tr>
@@ -32,6 +34,7 @@
     </table>
 </div>
 
+{% if g.usuario.papel == "dono" %}
 <div class="card">
     <h3>Serviços Mais Vendidos</h3>
     <table>
@@ -53,4 +56,5 @@
         </tbody>
     </table>
 </div>
+{% endif %}
 {% endblock %}

@@ -8,15 +8,29 @@
 <body>
     <nav class="navbar">
         <h1>💈 Gestão de Barbearia</h1>
+        {% if g.usuario %}
         <ul>
             <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
             <li><a href="{{ url_for('clientes') }}">Clientes</a></li>
             <li><a href="{{ url_for('atendimentos') }}">Atendimentos</a></li>
+            {% if g.usuario.papel == "dono" %}
             <li><a href="{{ url_for('relatorios') }}">Relatórios</a></li>
+            {% endif %}
+            <li class="usuario-logado">
+                {{ g.usuario.usuario }} ({{ g.usuario.papel }})
+                <form method="POST" action="{{ url_for('logout') }}" class="form-sair">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit">Sair</button>
+                </form>
+            </li>
         </ul>
+        {% endif %}
     </nav>
 
     <main class="container">
+        {% for mensagem in get_flashed_messages() %}
+        <p class="alerta">{{ mensagem }}</p>
+        {% endfor %}
         {% block content %}{% endblock %}
     </main>
 </body>
