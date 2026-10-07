@@ -1,8 +1,11 @@
 """
 models.py
 
-Funções de acesso aos dados (clientes, barbeiros, serviços e atendimentos)
-do Sistema de Gestão de Barbearia.
+Funções de acesso aos dados (barbearias, clientes, barbeiros, serviços,
+atendimentos e usuários) do Sistema de Gestão de Barbearia.
+
+Cada barbearia só vê os próprios dados: as funções recebem o barbearia_id
+como primeiro argumento e filtram (ou gravam) sempre por ele.
 """
 
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -13,20 +16,73 @@ PAPEIS = ("dono", "barbeiro")
 TAMANHO_MINIMO_SENHA = 8
 
 
+def _validar_senha(senha):
+    if len(senha) < TAMANHO_MINIMO_SENHA:
+        raise ValueError(
+            f"A senha precisa ter pelo menos {TAMANHO_MINIMO_SENHA} caracteres."
+        )
+
+
+# ---------- BARBEARIAS ----------
+
+def listar_barbearias():
+    conn = get_connection()
+    barbearias = conn.execute("SELECT * FROM barbearias ORDER BY id").fetchall()
+    conn.close()
+    return barbearias
+
+
+def buscar_barbearia(barbearia_id):
+    conn = get_connection()
+    barbearia = conn.execute(
+        "SELECT * FROM barbearias WHERE id = ?", (barbearia_id,)
+    ).fetchone()
+    conn.close()
+    return barbearia
+
+
+def criar_barbearia_com_dono(nome, usuario, senha):
+    """
+    Cadastra uma barbearia nova junto com o usuário dono dela. Se o usuário
+    não puder ser criado (nome repetido, por exemplo), a barbearia também
+    não é. Retorna o id da barbearia.
+    """
+    _validar_senha(senha)
+    conn = get_connection()
+    try:
+        barbearia_id = conn.execute(
+            "INSERT INTO barbearias (nome) VALUES (?)", (nome,)
+        ).lastrowid
+        conn.execute(
+            """
+            INSERT INTO usuarios (barbearia_id, usuario, senha_hash, papel)
+            VALUES (?, ?, ?, 'dono')
+            """,
+            (barbearia_id, usuario, generate_password_hash(senha)),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return barbearia_id
+
+
 # ---------- CLIENTES ----------
 
-def listar_clientes():
+def listar_clientes(barbearia_id):
     conn = get_connection()
-    clientes = conn.execute("SELECT * FROM clientes ORDER BY nome").fetchall()
+    clientes = conn.execute(
+        "SELECT * FROM clientes WHERE barbearia_id = ? ORDER BY nome",
+        (barbearia_id,),
+    ).fetchall()
     conn.close()
     return clientes
 
 
-def criar_cliente(nome, telefone=None):
+def criar_cliente(barbearia_id, nome, telefone=None):
     conn = get_connection()
     conn.execute(
-        "INSERT INTO clientes (nome, telefone) VALUES (?, ?)",
-        (nome, telefone),
+        "INSERT INTO clientes (barbearia_id, nome, telefone) VALUES (?, ?, ?)",
+        (barbearia_id, nome, telefone),
     )
     conn.commit()
     conn.close()
@@ -34,40 +90,78 @@ def criar_cliente(nome, telefone=None):
 
 # ---------- BARBEIROS ----------
 
-def listar_barbeiros():
+def listar_barbeiros(barbearia_id):
     conn = get_connection()
-    barbeiros = conn.execute("SELECT * FROM barbeiros ORDER BY nome").fetchall()
+    barbeiros = conn.execute(
+        "SELECT * FROM barbeiros WHERE barbearia_id = ? ORDER BY nome",
+        (barbearia_id,),
+    ).fetchall()
     conn.close()
     return barbeiros
 
 
-def buscar_barbeiro(barbeiro_id):
+def buscar_barbeiro(barbearia_id, barbeiro_id):
+    """O barbeiro, ou None se ele não existir ou for de outra barbearia."""
     conn = get_connection()
     barbeiro = conn.execute(
-        "SELECT * FROM barbeiros WHERE id = ?", (barbeiro_id,)
+        "SELECT * FROM barbeiros WHERE id = ? AND barbearia_id = ?",
+        (barbeiro_id, barbearia_id),
     ).fetchone()
     conn.close()
     return barbeiro
 
 
+def criar_barbeiro(barbearia_id, nome, comissao_percentual=40.0):
+    """Cadastra um barbeiro e retorna o id dele."""
+    conn = get_connection()
+    barbeiro_id = conn.execute(
+        """
+        INSERT INTO barbeiros (barbearia_id, nome, comissao_percentual)
+        VALUES (?, ?, ?)
+        """,
+        (barbearia_id, nome, comissao_percentual),
+    ).lastrowid
+    conn.commit()
+    conn.close()
+    return barbeiro_id
+
+
 # ---------- SERVIÇOS ----------
 
-def listar_servicos():
+def listar_servicos(barbearia_id):
     conn = get_connection()
-    servicos = conn.execute("SELECT * FROM servicos ORDER BY nome").fetchall()
+    servicos = conn.execute(
+        "SELECT * FROM servicos WHERE barbearia_id = ? ORDER BY nome",
+        (barbearia_id,),
+    ).fetchall()
     conn.close()
     return servicos
 
 
+def criar_servico(barbearia_id, nome, preco, duracao_minutos=30):
+    """Cadastra um serviço e retorna o id dele."""
+    conn = get_connection()
+    servico_id = conn.execute(
+        """
+        INSERT INTO servicos (barbearia_id, nome, preco, duracao_minutos)
+        VALUES (?, ?, ?, ?)
+        """,
+        (barbearia_id, nome, preco, duracao_minutos),
+    ).lastrowid
+    conn.commit()
+    conn.close()
+    return servico_id
+
+
 # ---------- ATENDIMENTOS ----------
 
-def listar_atendimentos(barbeiro_id=None):
-    """Lista os atendimentos; com barbeiro_id, só os daquele barbeiro."""
+def listar_atendimentos(barbearia_id, barbeiro_id=None):
+    """Lista os atendimentos da barbearia; com barbeiro_id, só os dele."""
     filtro = ""
-    parametros = ()
+    parametros = (barbearia_id,)
     if barbeiro_id is not None:
-        filtro = "WHERE atendimentos.barbeiro_id = ?"
-        parametros = (barbeiro_id,)
+        filtro = "AND atendimentos.barbeiro_id = ?"
+        parametros = (barbearia_id, barbeiro_id)
 
     conn = get_connection()
     atendimentos = conn.execute(
@@ -84,7 +178,7 @@ def listar_atendimentos(barbeiro_id=None):
         JOIN clientes ON clientes.id = atendimentos.cliente_id
         JOIN barbeiros ON barbeiros.id = atendimentos.barbeiro_id
         JOIN servicos ON servicos.id = atendimentos.servico_id
-        {filtro}
+        WHERE atendimentos.barbearia_id = ? {filtro}
         ORDER BY atendimentos.data_hora DESC
         """,
         parametros,
@@ -93,48 +187,71 @@ def listar_atendimentos(barbeiro_id=None):
     return atendimentos
 
 
-def criar_atendimento(cliente_id, barbeiro_id, servico_id, valor_cobrado, forma_pagamento="dinheiro"):
+def criar_atendimento(barbearia_id, cliente_id, barbeiro_id, servico_id, valor_cobrado, forma_pagamento="dinheiro"):
+    """
+    Registra um atendimento. O cliente, o barbeiro e o serviço precisam ser
+    da mesma barbearia; senão, levanta ValueError e nada é gravado.
+    """
     conn = get_connection()
-    conn.execute(
-        """
-        INSERT INTO atendimentos
-            (cliente_id, barbeiro_id, servico_id, valor_cobrado, forma_pagamento)
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (cliente_id, barbeiro_id, servico_id, valor_cobrado, forma_pagamento),
-    )
-    conn.commit()
-    conn.close()
+    try:
+        for tabela, nome, registro_id in (
+            ("clientes", "Cliente", cliente_id),
+            ("barbeiros", "Barbeiro", barbeiro_id),
+            ("servicos", "Serviço", servico_id),
+        ):
+            encontrado = conn.execute(
+                f"SELECT 1 FROM {tabela} WHERE id = ? AND barbearia_id = ?",
+                (registro_id, barbearia_id),
+            ).fetchone()
+            if encontrado is None:
+                raise ValueError(
+                    f"{nome} {registro_id} não existe nesta barbearia."
+                )
+        conn.execute(
+            """
+            INSERT INTO atendimentos
+                (barbearia_id, cliente_id, barbeiro_id, servico_id,
+                 valor_cobrado, forma_pagamento)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (barbearia_id, cliente_id, barbeiro_id, servico_id,
+             valor_cobrado, forma_pagamento),
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 # ---------- USUÁRIOS ----------
 
-def criar_usuario(usuario, senha, papel, barbeiro_id=None):
+def criar_usuario(barbearia_id, usuario, senha, papel, barbeiro_id=None):
     """
-    Cadastra um usuário com a senha guardada em hash. Usuário do papel
-    'barbeiro' precisa estar vinculado a um barbeiro existente.
+    Cadastra um usuário da barbearia com a senha guardada em hash. Usuário
+    do papel 'barbeiro' precisa estar vinculado a um barbeiro da mesma
+    barbearia.
     """
     if papel not in PAPEIS:
         raise ValueError(f"Papel inválido: {papel!r}. Use 'dono' ou 'barbeiro'.")
-    if len(senha) < TAMANHO_MINIMO_SENHA:
-        raise ValueError(
-            f"A senha precisa ter pelo menos {TAMANHO_MINIMO_SENHA} caracteres."
-        )
+    _validar_senha(senha)
+    if buscar_barbearia(barbearia_id) is None:
+        raise ValueError(f"Barbearia {barbearia_id} não existe.")
     if papel == "barbeiro":
         if barbeiro_id is None:
             raise ValueError("Usuário barbeiro precisa de um barbeiro_id.")
-        if buscar_barbeiro(barbeiro_id) is None:
-            raise ValueError(f"Barbeiro {barbeiro_id} não existe.")
+        if buscar_barbeiro(barbearia_id, barbeiro_id) is None:
+            raise ValueError(
+                f"Barbeiro {barbeiro_id} não existe nesta barbearia."
+            )
     else:
         barbeiro_id = None
 
     conn = get_connection()
     conn.execute(
         """
-        INSERT INTO usuarios (usuario, senha_hash, papel, barbeiro_id)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO usuarios (barbearia_id, usuario, senha_hash, papel, barbeiro_id)
+        VALUES (?, ?, ?, ?, ?)
         """,
-        (usuario, generate_password_hash(senha), papel, barbeiro_id),
+        (barbearia_id, usuario, generate_password_hash(senha), papel, barbeiro_id),
     )
     conn.commit()
     conn.close()

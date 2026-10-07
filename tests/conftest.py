@@ -5,13 +5,17 @@ Fixtures compartilhadas: cada teste roda em um banco SQLite temporário,
 inicializado a partir do schema.sql (com os dados de exemplo), sem tocar
 no barbearia.db real.
 
-Usuários criados em todo teste:
+Usuários criados em todo teste, na barbearia 1 (Barbearia Exemplo):
   dono  / senha-do-dono   (papel dono)
   joao  / senha-do-joao   (papel barbeiro, barbeiro_id 2 = João Pereira)
+
+A fixture outra_barbearia cria uma segunda barbearia, com dados próprios,
+para os testes que conferem que uma barbearia não vê os dados da outra.
 """
 
 import os
 import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -23,6 +27,7 @@ os.environ.setdefault("SECRET_KEY", "chave-de-teste")
 import database
 import models
 
+BARBEARIA = 1
 ID_DONO = 1
 ID_USUARIO_JOAO = 2
 BARBEIRO_JOAO = 2
@@ -33,12 +38,38 @@ def banco_temporario(tmp_path, monkeypatch):
     """Aponta a aplicação para um banco novo a cada teste."""
     monkeypatch.setenv("BARBEARIA_DB", str(tmp_path / "teste.db"))
     database.init_db()
-    models.criar_usuario("dono", "senha-do-dono", "dono")
-    models.criar_usuario("joao", "senha-do-joao", "barbeiro", BARBEIRO_JOAO)
+    models.criar_usuario(BARBEARIA, "dono", "senha-do-dono", "dono")
+    models.criar_usuario(BARBEARIA, "joao", "senha-do-joao", "barbeiro", BARBEIRO_JOAO)
     yield
 
 
-def _logar(client, usuario_id):
+@pytest.fixture
+def outra_barbearia():
+    """
+    Segunda barbearia, com um dono, um barbeiro (também com login), um
+    serviço, um cliente e um atendimento de R$ 123,45 — nomes e valores
+    que não existem na Barbearia Exemplo.
+    """
+    barbearia_id = models.criar_barbearia_com_dono(
+        "Navalha de Ouro", "dona-ouro", "senha-da-dona"
+    )
+    barbeiro_id = models.criar_barbeiro(barbearia_id, "Marcos Tesoura", 30.0)
+    servico_id = models.criar_servico(barbearia_id, "Pigmentação", 123.45)
+    models.criar_cliente(barbearia_id, "Diego Ramos", "(11) 95555-0000")
+    (cliente,) = models.listar_clientes(barbearia_id)
+    models.criar_atendimento(barbearia_id, cliente["id"], barbeiro_id, servico_id, 123.45)
+    models.criar_usuario(barbearia_id, "marcos", "senha-do-marcos", "barbeiro", barbeiro_id)
+    return SimpleNamespace(
+        id=barbearia_id,
+        cliente_id=cliente["id"],
+        barbeiro_id=barbeiro_id,
+        servico_id=servico_id,
+        id_dono=models.autenticar("dona-ouro", "senha-da-dona")["id"],
+        id_barbeiro=models.autenticar("marcos", "senha-do-marcos")["id"],
+    )
+
+
+def logar(client, usuario_id):
     with client.session_transaction() as sessao:
         sessao["usuario_id"] = usuario_id
 
@@ -58,14 +89,14 @@ def client_anonimo():
 @pytest.fixture
 def client(client_anonimo):
     """Cliente de teste logado como dono, com CSRF desligado."""
-    _logar(client_anonimo, ID_DONO)
+    logar(client_anonimo, ID_DONO)
     return client_anonimo
 
 
 @pytest.fixture
 def client_barbeiro(client_anonimo):
     """Cliente de teste logado como o barbeiro João, com CSRF desligado."""
-    _logar(client_anonimo, ID_USUARIO_JOAO)
+    logar(client_anonimo, ID_USUARIO_JOAO)
     return client_anonimo
 
 
@@ -77,5 +108,5 @@ def client_csrf():
     app.config["TESTING"] = True
     app.config["WTF_CSRF_ENABLED"] = True
     with app.test_client() as client:
-        _logar(client, ID_DONO)
+        logar(client, ID_DONO)
         yield client

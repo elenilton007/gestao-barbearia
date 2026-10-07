@@ -9,25 +9,26 @@ import pytest
 
 import models
 import reports
+from conftest import BARBEARIA
 
 
 def _comissao_de(nome):
-    return next(c for c in reports.comissoes_por_barbeiro() if c["barbeiro"] == nome)
+    return next(c for c in reports.comissoes_por_barbeiro(BARBEARIA) if c["barbeiro"] == nome)
 
 
 def test_faturamento_total_sem_atendimentos_e_zero():
-    assert reports.faturamento_total() == 0
+    assert reports.faturamento_total(BARBEARIA) == 0
 
 
 def test_faturamento_total_soma_atendimentos():
-    models.criar_atendimento(1, 1, 1, 35.00, "pix")
-    models.criar_atendimento(2, 2, 3, 55.00, "cartao")
-    models.criar_atendimento(3, 1, 2, 25.50)
-    assert reports.faturamento_total() == pytest.approx(115.50)
+    models.criar_atendimento(BARBEARIA, 1, 1, 1, 35.00, "pix")
+    models.criar_atendimento(BARBEARIA, 2, 2, 3, 55.00, "cartao")
+    models.criar_atendimento(BARBEARIA, 3, 1, 2, 25.50)
+    assert reports.faturamento_total(BARBEARIA) == pytest.approx(115.50)
 
 
 def test_comissoes_listam_todos_os_barbeiros_mesmo_sem_atendimento():
-    comissoes = reports.comissoes_por_barbeiro()
+    comissoes = reports.comissoes_por_barbeiro(BARBEARIA)
     assert {c["barbeiro"] for c in comissoes} == {"Elenilton Silveira", "João Pereira"}
     for c in comissoes:
         assert c["total_faturado"] == 0
@@ -36,9 +37,9 @@ def test_comissoes_listam_todos_os_barbeiros_mesmo_sem_atendimento():
 
 def test_comissao_calculada_pelo_percentual_de_cada_barbeiro():
     # Elenilton (id 1) tem 50%; João (id 2) tem 40%
-    models.criar_atendimento(1, 1, 1, 35.00)
-    models.criar_atendimento(2, 1, 3, 55.00)
-    models.criar_atendimento(3, 2, 2, 25.00)
+    models.criar_atendimento(BARBEARIA, 1, 1, 1, 35.00)
+    models.criar_atendimento(BARBEARIA, 2, 1, 3, 55.00)
+    models.criar_atendimento(BARBEARIA, 3, 2, 2, 25.00)
 
     elenilton = _comissao_de("Elenilton Silveira")
     joao = _comissao_de("João Pereira")
@@ -50,22 +51,22 @@ def test_comissao_calculada_pelo_percentual_de_cada_barbeiro():
 
 
 def test_comissao_arredondada_em_duas_casas():
-    models.criar_atendimento(1, 2, 1, 33.33)  # 40% de 33,33 = 13,332
+    models.criar_atendimento(BARBEARIA, 1, 2, 1, 33.33)  # 40% de 33,33 = 13,332
     assert _comissao_de("João Pereira")["comissao_valor"] == 13.33
 
 
 def test_comissoes_ordenadas_por_faturamento():
-    models.criar_atendimento(1, 2, 3, 55.00)
-    comissoes = reports.comissoes_por_barbeiro()
+    models.criar_atendimento(BARBEARIA, 1, 2, 3, 55.00)
+    comissoes = reports.comissoes_por_barbeiro(BARBEARIA)
     assert comissoes[0]["barbeiro"] == "João Pereira"
 
 
 def test_servicos_mais_vendidos_ordenados_por_quantidade():
-    models.criar_atendimento(1, 1, 2, 25.00)  # Barba
-    models.criar_atendimento(2, 1, 2, 25.00)  # Barba
-    models.criar_atendimento(3, 2, 1, 35.00)  # Corte Masculino
+    models.criar_atendimento(BARBEARIA, 1, 1, 2, 25.00)  # Barba
+    models.criar_atendimento(BARBEARIA, 2, 1, 2, 25.00)  # Barba
+    models.criar_atendimento(BARBEARIA, 3, 2, 1, 35.00)  # Corte Masculino
 
-    servicos = reports.servicos_mais_vendidos()
+    servicos = reports.servicos_mais_vendidos(BARBEARIA)
     assert len(servicos) == 5  # todos os serviços aparecem, mesmo sem venda
     assert servicos[0]["servico"] == "Barba"
     assert servicos[0]["quantidade"] == 2

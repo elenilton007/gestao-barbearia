@@ -5,8 +5,9 @@ como serviço por assinatura para barbearias. Itens ordenados por prioridade.
 
 ## Estado atual
 
-Hoje o sistema é uma aplicação **de uma única barbearia**, rodando
-em SQLite local com o servidor de desenvolvimento do Flask. Já tem
+Hoje o sistema já **separa os dados por barbearia** (cada usuário só vê a
+própria), rodando em SQLite local com o servidor de desenvolvimento do
+Flask. Já tem
 `SECRET_KEY` por variável de ambiente, debug desligado por padrão e
 proteção CSRF nos formulários (Flask-WTF), e login com os papéis *dono*
 e *barbeiro* (o barbeiro vê só os próprios atendimentos e comissões).
@@ -18,10 +19,16 @@ cadastrá-los), e rodar `python database.py` **apaga todos os dados**
 ## 🔴 Bloqueadores (sem isso não dá para cobrar de ninguém)
 
 1. **Multi-tenancy** — cada barbearia precisa ver só os próprios dados.
-   - Criar tabela `barbearias` (tenant) e coluna `barbearia_id` em
-     `clientes`, `barbeiros`, `servicos` e `atendimentos`.
-   - Filtrar **todas** as queries de `models.py` e `reports.py` pelo tenant
-     da sessão (hoje nenhuma filtra nada).
+   - ~~Criar tabela `barbearias` (tenant) e coluna `barbearia_id` em
+     `clientes`, `barbeiros`, `servicos` e `atendimentos`.~~ Feito (também
+     em `usuarios`).
+   - ~~Filtrar **todas** as queries de `models.py` e `reports.py` pelo tenant
+     da sessão.~~ Feito: a barbearia vem do usuário logado, e atendimento
+     com cliente, barbeiro ou serviço de outra barbearia é recusado.
+   - Cadastro de barbearia pela web (hoje é pelo `criar_usuario.py
+     --nova-barbearia`) e telas para a barbearia nova cadastrar os próprios
+     barbeiros e serviços (hoje ela começa vazia e não há como preenchê-la
+     sem SQL).
 2. **Autenticação e permissões**
    - ~~Tabela `usuarios` com senha em hash (`werkzeug.security`), papéis
      *dono* e *barbeiro* (barbeiro vê só as próprias comissões).~~ Feito.

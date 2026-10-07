@@ -32,18 +32,67 @@ def _executar_script(nome_arquivo):
     conn.close()
 
 
-def criar_tabela_usuarios():
+# Tabelas cujos dados pertencem a uma barbearia.
+TABELAS_COM_BARBEARIA = ("clientes", "barbeiros", "servicos", "atendimentos", "usuarios")
+
+
+def _colunas(conn, tabela):
+    return {linha["name"] for linha in conn.execute(f"PRAGMA table_info({tabela})")}
+
+
+def _separar_por_barbearia(conn):
     """
-    Cria a tabela de usuários se ela ainda não existir. Não apaga nada,
-    então serve para atualizar um banco antigo que já tem dados.
+    Banco criado antes de existir a tabela barbearias: cria a tabela e
+    coloca todos os dados que já existem numa barbearia só.
     """
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS barbearias (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL,
+            criado_em TEXT DEFAULT (datetime('now'))
+        )
+        """
+    )
+    sem_coluna = [
+        tabela for tabela in TABELAS_COM_BARBEARIA
+        if _colunas(conn, tabela) and "barbearia_id" not in _colunas(conn, tabela)
+    ]
+    if not sem_coluna:
+        return
+
+    barbearia_id = conn.execute("SELECT MIN(id) FROM barbearias").fetchone()[0]
+    if barbearia_id is None:
+        barbearia_id = conn.execute(
+            "INSERT INTO barbearias (nome) VALUES ('Minha Barbearia')"
+        ).lastrowid
+    for tabela in sem_coluna:
+        # O SQLite só aceita ADD COLUMN NOT NULL com um DEFAULT; ele preenche
+        # as linhas antigas. As inserções de models.py sempre informam a
+        # barbearia, então o DEFAULT não é usado depois disso.
+        conn.execute(
+            f"ALTER TABLE {tabela} ADD COLUMN barbearia_id INTEGER NOT NULL "
+            f"DEFAULT {int(barbearia_id)} REFERENCES barbearias (id)"
+        )
+
+
+def atualizar_banco():
+    """
+    Atualiza um banco antigo sem apagar nada: separa os dados por
+    barbearia e cria a tabela de usuários, se ainda não existirem.
+    Pode ser executada várias vezes.
+    """
+    conn = get_connection()
+    _separar_por_barbearia(conn)
+    conn.commit()
+    conn.close()
     _executar_script("schema_usuarios.sql")
 
 
 def init_db():
     """Inicializa o banco de dados executando o schema.sql."""
     _executar_script("schema.sql")
-    criar_tabela_usuarios()
+    atualizar_banco()
     print("Banco de dados inicializado com sucesso.")
 
 

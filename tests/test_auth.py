@@ -8,14 +8,14 @@ import pytest
 
 import models
 import reports
-from conftest import BARBEIRO_JOAO
+from conftest import BARBEARIA, BARBEIRO_JOAO
 
 ROTAS_PROTEGIDAS = ["/", "/clientes", "/atendimentos", "/relatorios"]
 
 
 def _registrar_atendimentos_dos_dois_barbeiros():
-    models.criar_atendimento(1, 1, 3, 55.00)  # Elenilton, 50% -> 27,50
-    models.criar_atendimento(2, 2, 1, 35.00)  # João, 40% -> 14,00
+    models.criar_atendimento(BARBEARIA, 1, 1, 3, 55.00)  # Elenilton, 50% -> 27,50
+    models.criar_atendimento(BARBEARIA, 2, 2, 1, 35.00)  # João, 40% -> 14,00
 
 
 # ---------- LOGIN / LOGOUT ----------
@@ -41,8 +41,8 @@ def test_post_sem_login_nao_grava_nada(client_anonimo, rota):
     )
     assert resposta.status_code == 302
     assert resposta.headers["Location"].endswith("/login")
-    assert "Intruso" not in {c["nome"] for c in models.listar_clientes()}
-    assert models.listar_atendimentos() == []
+    assert "Intruso" not in {c["nome"] for c in models.listar_clientes(BARBEARIA)}
+    assert models.listar_atendimentos(BARBEARIA) == []
 
 
 def test_pagina_de_login_carrega(client_anonimo):
@@ -125,7 +125,7 @@ def test_dono_registra_atendimento_para_qualquer_barbeiro(client):
         data={"cliente_id": "1", "barbeiro_id": "1", "servico_id": "1",
               "valor_cobrado": "35.00"},
     )
-    (atendimento,) = models.listar_atendimentos()
+    (atendimento,) = models.listar_atendimentos(BARBEARIA)
     assert atendimento["barbeiro"] == "Elenilton Silveira"
 
 
@@ -165,13 +165,13 @@ def test_barbeiro_so_registra_atendimento_em_seu_nome(client_barbeiro):
               "valor_cobrado": "35.00"},
     )
     assert resposta.status_code == 302
-    (atendimento,) = models.listar_atendimentos()
+    (atendimento,) = models.listar_atendimentos(BARBEARIA)
     assert atendimento["barbeiro"] == "João Pereira"
 
 
 def test_barbeiro_pode_cadastrar_cliente(client_barbeiro):
     client_barbeiro.post("/clientes/novo", data={"nome": "Cliente do João"})
-    assert "Cliente do João" in {c["nome"] for c in models.listar_clientes()}
+    assert "Cliente do João" in {c["nome"] for c in models.listar_clientes(BARBEARIA)}
 
 
 # ---------- MODELS / REPORTS ----------
@@ -193,29 +193,29 @@ def test_senha_guardada_em_hash():
 )
 def test_criar_usuario_valida_dados(papel, senha, barbeiro_id, mensagem):
     with pytest.raises(ValueError, match=mensagem):
-        models.criar_usuario("novo", senha, papel, barbeiro_id)
+        models.criar_usuario(BARBEARIA, "novo", senha, papel, barbeiro_id)
 
 
 def test_usuario_repetido_e_recusado():
     import sqlite3
 
     with pytest.raises(sqlite3.IntegrityError):
-        models.criar_usuario("dono", "outra-senha", "dono")
+        models.criar_usuario(BARBEARIA, "dono", "outra-senha", "dono")
 
 
 def test_dono_nao_fica_vinculado_a_barbeiro():
-    models.criar_usuario("socio", "senha-do-socio", "dono", 1)
+    models.criar_usuario(BARBEARIA, "socio", "senha-do-socio", "dono", 1)
     assert models.autenticar("socio", "senha-do-socio")["barbeiro_id"] is None
 
 
 def test_comissoes_filtradas_por_barbeiro():
     _registrar_atendimentos_dos_dois_barbeiros()
-    (linha,) = reports.comissoes_por_barbeiro(BARBEIRO_JOAO)
+    (linha,) = reports.comissoes_por_barbeiro(BARBEARIA, BARBEIRO_JOAO)
     assert linha["barbeiro"] == "João Pereira"
     assert linha["comissao_valor"] == pytest.approx(14.00)
 
 
 def test_atendimentos_filtrados_por_barbeiro():
     _registrar_atendimentos_dos_dois_barbeiros()
-    (atendimento,) = models.listar_atendimentos(BARBEIRO_JOAO)
+    (atendimento,) = models.listar_atendimentos(BARBEARIA, BARBEIRO_JOAO)
     assert atendimento["barbeiro"] == "João Pereira"
