@@ -6,6 +6,7 @@
 <div class="card">
     <h3>Registrar Novo Atendimento</h3>
     <form method="POST" action="{{ url_for('novo_atendimento') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <label for="cliente_id">Cliente:</label>
         <select id="cliente_id" name="cliente_id" required>
             {% for cliente in clientes %}

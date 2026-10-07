@@ -5,11 +5,32 @@ Aplicação Flask do Sistema de Gestão de Barbearia — rotas para
 dashboard, clientes, atendimentos e relatórios financeiros.
 """
 
+import os
+import secrets
+
 from flask import Flask, render_template, request, redirect, url_for
+from flask_wtf.csrf import CSRFProtect
+
 import models
 import reports
 
+DEBUG = os.environ.get("FLASK_DEBUG") == "1"
+
 app = Flask(__name__)
+
+# A SECRET_KEY assina a sessão e os tokens CSRF. Em produção ela é
+# obrigatória; só no modo debug usamos uma chave aleatória temporária.
+_secret_key = os.environ.get("SECRET_KEY")
+if not _secret_key:
+    if not DEBUG:
+        raise RuntimeError(
+            "Defina a variável de ambiente SECRET_KEY "
+            "(ou FLASK_DEBUG=1 para desenvolvimento local)."
+        )
+    _secret_key = secrets.token_hex(32)
+app.config["SECRET_KEY"] = _secret_key
+
+csrf = CSRFProtect(app)
 
 
 @app.route("/")
@@ -88,4 +109,4 @@ def relatorios():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=DEBUG)
