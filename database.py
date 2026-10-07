@@ -14,7 +14,9 @@ Uso pela linha de comando:
     python database.py             recria o banco do zero com dados de exemplo
     python database.py --preparar  cria as tabelas se o banco estiver vazio
                                    (sem dados de exemplo) ou atualiza um banco
-                                   existente, sem apagar nada
+                                   existente, sem apagar nada; com o banco
+                                   sem usuários e DONO_USUARIO/DONO_SENHA
+                                   definidas, cria também o primeiro dono
 """
 
 import os
@@ -288,6 +290,40 @@ def preparar_banco():
     atualizar_banco()
 
 
+def criar_primeiro_dono():
+    """
+    Num banco sem nenhum usuário, cadastra a barbearia e o primeiro dono a
+    partir de DONO_USUARIO, DONO_SENHA e BARBEARIA_NOME (opcional). Serve
+    para o plano gratuito do Render, que não tem terminal no servidor.
+    Depois que existe um usuário, as variáveis são ignoradas. Retorna a
+    mensagem para mostrar no log.
+    """
+    import models  # aqui dentro: models importa este módulo
+
+    conn = get_connection()
+    try:
+        tem_usuario = conn.execute("SELECT COUNT(*) FROM usuarios").fetchone()[0] > 0
+    finally:
+        conn.close()
+    if tem_usuario:
+        return None
+
+    usuario = os.environ.get("DONO_USUARIO", "").strip()
+    senha = os.environ.get("DONO_SENHA", "")
+    if not (usuario and senha):
+        return (
+            "Ainda não há nenhum usuário. Defina DONO_USUARIO e DONO_SENHA "
+            "e publique de novo para criar o primeiro dono."
+        )
+    nome = os.environ.get("BARBEARIA_NOME", "").strip() or "Minha Barbearia"
+    try:
+        models.criar_barbearia_com_dono(nome, usuario, senha)
+    except ValueError as erro:
+        # Não impede o site de subir; o motivo fica no log do deploy.
+        return f"Primeiro dono não criado: {erro}"
+    return f"Barbearia {nome!r} criada com o dono {usuario!r}."
+
+
 def init_db():
     """Recria o banco do zero (apaga tudo) com os dados de exemplo."""
     _executar_script("schema.sql")
@@ -300,6 +336,9 @@ def main(argv=None):
     if argv == ["--preparar"]:
         preparar_banco()
         print("Banco de dados pronto.")
+        mensagem = criar_primeiro_dono()
+        if mensagem:
+            print(mensagem)
         return 0
     if argv not in ([], ["--apagar-tudo"]):
         print("Uso: python database.py [--preparar | --apagar-tudo]")

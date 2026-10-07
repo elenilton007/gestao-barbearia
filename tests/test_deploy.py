@@ -95,3 +95,9 @@ def test_dockerfile_prepara_o_banco_e_sobe_o_gunicorn():
         texto = arquivo.read()
     assert "python database.py --preparar && exec gunicorn app:app" in texto
     assert "${PORT}" in texto
+
+
+def test_render_yaml_pede_o_primeiro_dono_no_painel():
+    texto = _render_yaml()
+    for chave in ("DONO_USUARIO", "DONO_SENHA", "BARBEARIA_NOME"):
+        assert f"key: {chave}\n        sync: false" in texto

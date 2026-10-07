@@ -193,3 +193,60 @@ def test_app_roda_no_gunicorn(tmp_path):
     finally:
         servidor.terminate()
         servidor.wait(timeout=10)
+
+
+# ---------- PRIMEIRO DONO PELO DEPLOY ----------
+
+def _sem_variaveis_do_dono(monkeypatch):
+    for nome in ("DONO_USUARIO", "DONO_SENHA", "BARBEARIA_NOME"):
+        monkeypatch.delenv(nome, raising=False)
+
+
+def test_preparar_cria_o_primeiro_dono_pelas_variaveis(monkeypatch, capsys):
+    _sem_variaveis_do_dono(monkeypatch)
+    _apagar_tabelas()
+    monkeypatch.setenv("DONO_USUARIO", "primeiro-dono")
+    monkeypatch.setenv("DONO_SENHA", "senha-forte")
+    monkeypatch.setenv("BARBEARIA_NOME", "Barbearia do Deploy")
+
+    assert database.main(["--preparar"]) == 0
+
+    assert "criada com o dono" in capsys.readouterr().out
+    usuario = models.autenticar("primeiro-dono", "senha-forte")
+    assert usuario["papel"] == "dono"
+    assert [b["nome"] for b in models.listar_barbearias()] == ["Barbearia do Deploy"]
+
+
+def test_preparar_sem_variaveis_avisa_e_nao_cria_dono(monkeypatch, capsys):
+    _sem_variaveis_do_dono(monkeypatch)
+    _apagar_tabelas()
+
+    assert database.main(["--preparar"]) == 0
+
+    assert "DONO_USUARIO" in capsys.readouterr().out
+    assert models.listar_barbearias() == []
+
+
+def test_preparar_com_usuario_existente_ignora_as_variaveis(monkeypatch):
+    _sem_variaveis_do_dono(monkeypatch)
+    monkeypatch.setenv("DONO_USUARIO", "outro-dono")
+    monkeypatch.setenv("DONO_SENHA", "senha-forte")
+    barbearias_antes = len(models.listar_barbearias())
+
+    assert database.main(["--preparar"]) == 0
+    assert database.main(["--preparar"]) == 0
+
+    assert models.autenticar("outro-dono", "senha-forte") is None
+    assert len(models.listar_barbearias()) == barbearias_antes
+
+
+def test_preparar_com_senha_curta_nao_cria_dono_mas_sobe(monkeypatch, capsys):
+    _sem_variaveis_do_dono(monkeypatch)
+    _apagar_tabelas()
+    monkeypatch.setenv("DONO_USUARIO", "primeiro-dono")
+    monkeypatch.setenv("DONO_SENHA", "curta")
+
+    assert database.main(["--preparar"]) == 0
+
+    assert "Primeiro dono não criado" in capsys.readouterr().out
+    assert models.listar_barbearias() == []

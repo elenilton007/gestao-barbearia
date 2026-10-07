@@ -258,15 +258,24 @@ As tabelas não precisam ser criadas à mão: o site cria quando sobe.
    Render lê o `render.yaml` e monta o site **gestao-barbearia** no plano
    **Free**, a partir do `Dockerfile`, com uma `SECRET_KEY` aleatória e
    `COOKIE_SEGURO=1`.
-3. O Render pede o valor de **`DATABASE_URL`**: cole a connection string
-   do Neon e confirme em **Apply**.
+3. O Render pede os valores das variáveis e confirme em **Apply**:
+   - **`DATABASE_URL`**: a connection string do Neon;
+   - **`DONO_USUARIO`** e **`DONO_SENHA`** (mínimo de 8 caracteres): o
+     login do primeiro dono;
+   - **`BARBEARIA_NOME`**: o nome da barbearia (se ficar vazio, vira
+     "Minha Barbearia").
 4. Espere o deploy terminar (alguns minutos). Ao iniciar, o contêiner
    roda `python database.py --preparar`, que cria as tabelas vazias (sem
-   os dados de exemplo) e nunca apaga dados — roda a cada deploy — e
-   depois sobe o Gunicorn.
+   os dados de exemplo) e nunca apaga dados — roda a cada deploy. Se o
+   banco ainda não tem nenhum usuário, ele também cria a barbearia e o
+   dono de `DONO_USUARIO`/`DONO_SENHA`. Depois sobe o Gunicorn.
 5. O endereço do site aparece no topo da página do serviço, algo como
-   **https://gestao-barbearia.onrender.com**. A tela de login já abre,
-   mas ainda não existe nenhum usuário.
+   **https://gestao-barbearia.onrender.com**. Entre com o usuário e a
+   senha do dono e cadastre os barbeiros, os serviços e os usuários dos
+   barbeiros pelas telas.
+6. Depois de entrar, apague `DONO_SENHA` em **Environment** no Render
+   (com o dono criado, as variáveis não são mais usadas). Troque a senha
+   pelo menu do sistema quando quiser.
 
 <details>
 <summary>Prefere criar o site à mão, sem o Blueprint?</summary>
@@ -278,15 +287,17 @@ As tabelas não precisam ser criadas à mão: o site cria quando sobe.
    - `DATABASE_URL` = a connection string do Neon;
    - `SECRET_KEY` = o resultado de
      `python -c "import secrets; print(secrets.token_hex(32))"`;
-   - `COOKIE_SEGURO` = `1`.
+   - `COOKIE_SEGURO` = `1`;
+   - `DONO_USUARIO`, `DONO_SENHA` e `BARBEARIA_NOME` = o primeiro dono.
 3. Em **Health Check Path**, coloque `/login` e crie o serviço.
 
 </details>
 
-### 3. Criar o primeiro dono
+### 3. Criar o primeiro dono pelo computador (opcional)
 
-O plano gratuito do Render não tem terminal no servidor. O usuário dono
-é criado do seu computador, conectando direto no banco do Neon:
+Se você não definiu `DONO_USUARIO`/`DONO_SENHA` no Render (o plano
+gratuito não tem terminal no servidor), crie o dono do seu computador,
+conectando direto no banco do Neon:
 
 1. Dentro da pasta do projeto e com o ambiente virtual ativado (passos 2
    e 3 da instalação), rode, colando a connection string do Neon:
@@ -376,7 +387,7 @@ Os testes ficam em `tests/` e cobrem:
 | `test_login_seguro.py` | Bloqueio após 5 senhas erradas, troca de senha pelo dono e expiração da sessão por inatividade |
 | `test_comissao_gravada.py` | Percentual de comissão gravado no atendimento: mudar a comissão do barbeiro não altera os atendimentos antigos, e banco antigo recebe a coluna |
 | `test_security.py` | `SECRET_KEY` obrigatória, debug desligado por padrão e proteção CSRF |
-| `test_producao.py` | Tradução do SQL para o PostgreSQL, `database.py --preparar` sem apagar dados, proteção contra apagar o PostgreSQL, cookie seguro e o app rodando no Gunicorn |
+| `test_producao.py` | Tradução do SQL para o PostgreSQL, `database.py --preparar` sem apagar dados, primeiro dono pelas variáveis `DONO_USUARIO`/`DONO_SENHA`, proteção contra apagar o PostgreSQL, cookie seguro e o app rodando no Gunicorn |
 
 O GitHub Actions roda esses testes a cada push e pull request
 (`.github/workflows/testes.yml`), uma vez no SQLite e outra no
