@@ -8,6 +8,7 @@ import pytest
 
 import models
 import reports
+from conftest import BARBEARIA
 
 
 @pytest.mark.parametrize("rota", ["/", "/clientes", "/atendimentos", "/relatorios"])
@@ -18,7 +19,7 @@ def test_paginas_carregam(client, rota):
 
 
 def test_dashboard_mostra_faturamento(client):
-    models.criar_atendimento(1, 1, 1, 35.00)
+    models.criar_atendimento(BARBEARIA, 1, 1, 1, 35.00)
     html = client.get("/").get_data(as_text=True)
     assert "R$ 35.00" in html
     assert "R$ 17.50" in html  # comissão de 50%
@@ -55,4 +56,4 @@ def test_registrar_atendimento_pelo_formulario(client):
     html = client.get("/atendimentos").get_data(as_text=True)
     assert "Rafael Lima" in html
     assert "cartao" in html
-    assert reports.faturamento_total() == pytest.approx(25.00)
+    assert reports.faturamento_total(BARBEARIA) == pytest.approx(25.00)

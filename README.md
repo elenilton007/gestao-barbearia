@@ -18,12 +18,12 @@ Depois de duas décadas gerindo um negócio próprio (fluxo de caixa, comissão 
 
 | Arquivo/Pasta | Responsabilidade |
 |---|---|
-| `schema.sql` | Estrutura do banco de dados (clientes, barbeiros, serviços, atendimentos) |
+| `schema.sql` | Estrutura do banco de dados (barbearias, clientes, barbeiros, serviços, atendimentos) |
 | `schema_usuarios.sql` | Tabela de usuários de login (aplicada sem apagar dados) |
-| `database.py` | Camada de conexão e inicialização do banco (SQLite) |
-| `models.py` | Operações de CRUD das entidades e autenticação de usuários |
-| `criar_usuario.py` | Linha de comando para cadastrar usuários (dono ou barbeiro) |
-| `reports.py` | Consultas SQL avançadas: faturamento, comissões, ranking de serviços/clientes |
+| `database.py` | Camada de conexão, inicialização e atualização de bancos antigos (SQLite) |
+| `models.py` | Operações de CRUD das entidades e autenticação de usuários, sempre filtradas por barbearia |
+| `criar_usuario.py` | Linha de comando para cadastrar usuários (dono ou barbeiro) e barbearias novas |
+| `reports.py` | Consultas SQL avançadas: faturamento, comissões, ranking de serviços/clientes, por barbearia |
 | `app.py` | Aplicação web Flask (rotas, páginas, login e permissões) |
 | `templates/` | Páginas HTML (login, dashboard, clientes, atendimentos, relatórios) |
 | `static/style.css` | Estilo visual da aplicação |
@@ -31,8 +31,13 @@ Depois de duas décadas gerindo um negócio próprio (fluxo de caixa, comissão 
 
 ## 📊 Funcionalidades
 
+- **Várias barbearias no mesmo sistema**: cada barbearia só vê os próprios
+  clientes, barbeiros, serviços, atendimentos e relatórios. Toda tabela tem
+  a coluna `barbearia_id`, e toda consulta filtra pela barbearia do usuário
+  logado. Um atendimento com cliente, barbeiro ou serviço de outra
+  barbearia é recusado
 - **Login com dois papéis**:
-  - **dono** — acesso total: faturamento, comissões de todos, relatórios
+  - **dono** — acesso total à própria barbearia: faturamento, comissões de todos, relatórios
   - **barbeiro** — vê só os próprios atendimentos e a própria comissão;
     registra atendimentos apenas em seu nome e não acessa os relatórios
 - **Dashboard gerencial**: faturamento do mês, ticket médio, top serviços, top clientes, comissões
@@ -84,7 +89,8 @@ pip install -r requirements-dev.txt    # inclui o pytest, para rodar os testes
 python database.py
 ```
 
-Cria o arquivo `barbearia.db` com barbeiros, serviços e clientes de exemplo.
+Cria o arquivo `barbearia.db` com uma barbearia de exemplo (*Barbearia
+Exemplo*) e os barbeiros, serviços e clientes dela.
 
 > ⚠️ Este comando **recria o banco do zero e apaga todos os dados**
 > existentes. Rode-o apenas na primeira instalação.
@@ -112,9 +118,28 @@ Para cada barbeiro, crie um usuário vinculado ao id dele na tabela
 python criar_usuario.py barbeiro joao --barbeiro-id 2
 ```
 
+Enquanto houver uma barbearia só no banco, os usuários vão para ela. Para
+cadastrar outra barbearia junto com o dono dela:
+
+```bash
+python criar_usuario.py dono maria --nova-barbearia "Barbearia da Maria"
+```
+
+Com mais de uma barbearia, informe `--barbearia-id` (rode sem ele para ver
+a lista de ids):
+
+```bash
+python criar_usuario.py barbeiro pedro --barbearia-id 2 --barbeiro-id 5
+```
+
+O nome de usuário é único no sistema todo, mesmo entre barbearias
+diferentes. Ainda não há tela nem comando para cadastrar barbeiros e
+serviços de uma barbearia nova (veja o [SAAS_ROADMAP.md](SAAS_ROADMAP.md)).
+
 > 💡 **Já tem um `barbearia.db` com dados?** Não rode `python database.py`
-> de novo. O `criar_usuario.py` cria a tabela de usuários no banco
-> existente sem apagar nada.
+> de novo. O `criar_usuario.py` e o `app.py` atualizam o banco existente
+> sem apagar nada: criam a tabela de usuários, se faltar, e colocam todos
+> os dados antigos numa barbearia chamada *Minha Barbearia*.
 
 ### 6. Rodar a aplicação
 
@@ -170,7 +195,8 @@ Os testes ficam em `tests/` e cobrem:
 | `test_reports.py` | Faturamento total, cálculo/arredondamento de comissões e ranking de serviços |
 | `test_app.py` | Rotas Flask: páginas carregam, formulários cadastram e redirecionam |
 | `test_auth.py` | Login/logout, páginas bloqueadas sem login, dono vê tudo, barbeiro vê só as próprias comissões e atendimentos |
-| `test_criar_usuario.py` | Script `criar_usuario.py`: validações e criação da tabela em banco antigo sem perder dados |
+| `test_barbearias.py` | Uma barbearia não vê nem altera os dados da outra (listas, relatórios, páginas e formulários) e atualização de banco antigo |
+| `test_criar_usuario.py` | Script `criar_usuario.py`: validações, barbearia nova ou informada e criação da tabela em banco antigo sem perder dados |
 | `test_security.py` | `SECRET_KEY` obrigatória, debug desligado por padrão e proteção CSRF |
 
 O GitHub Actions roda esses testes a cada push e pull request

@@ -4,8 +4,10 @@ app.py
 Aplicação Flask do Sistema de Gestão de Barbearia — rotas para
 login, dashboard, clientes, atendimentos e relatórios financeiros.
 
+Cada usuário pertence a uma barbearia e só vê os dados dela.
+
 Papéis de acesso:
-  dono     -> vê e faz tudo
+  dono     -> vê e faz tudo na própria barbearia
   barbeiro -> vê só os próprios atendimentos e comissões
 """
 
@@ -26,6 +28,7 @@ from flask import (
 )
 from flask_wtf.csrf import CSRFProtect
 
+import database
 import models
 import reports
 
@@ -53,9 +56,12 @@ csrf = CSRFProtect(app)
 
 @app.before_request
 def carregar_usuario():
-    """Coloca o usuário logado (ou None) em g.usuario."""
+    """Coloca o usuário logado (ou None) em g.usuario, e a barbearia dele em g.barbearia."""
     usuario_id = session.get("usuario_id")
     g.usuario = models.buscar_usuario(usuario_id) if usuario_id else None
+    g.barbearia = (
+        models.buscar_barbearia(g.usuario["barbearia_id"]) if g.usuario else None
+    )
 
 
 def login_obrigatorio(view):
@@ -75,6 +81,11 @@ def somente_dono(view):
             abort(403)
         return view(*args, **kwargs)
     return wrapper
+
+
+def barbearia_logada():
+    """id da barbearia do usuário logado; todas as consultas filtram por ele."""
+    return g.usuario["barbearia_id"]
 
 
 def barbeiro_logado():
@@ -116,16 +127,17 @@ def dashboard():
     Página inicial. O dono vê o resumo da barbearia inteira; o barbeiro
     vê só a própria comissão.
     """
+    barbearia_id = barbearia_logada()
     barbeiro_id = barbeiro_logado()
     if barbeiro_id is not None:
         return render_template(
             "dashboard.html",
-            comissoes=reports.comissoes_por_barbeiro(barbeiro_id),
+            comissoes=reports.comissoes_por_barbeiro(barbearia_id, barbeiro_id),
         )
 
-    total = reports.faturamento_total()
-    comissoes = reports.comissoes_por_barbeiro()
-    servicos = reports.servicos_mais_vendidos()
+    total = reports.faturamento_total(barbearia_id)
+    comissoes = reports.comissoes_por_barbeiro(barbearia_id)
+    servicos = reports.servicos_mais_vendidos(barbearia_id)
     return render_template(
         "dashboard.html",
         total=total,
@@ -137,8 +149,8 @@ def dashboard():
 @app.route("/clientes")
 @login_obrigatorio
 def clientes():
-    """Lista todos os clientes cadastrados."""
-    lista = models.listar_clientes()
+    """Lista os clientes da barbearia."""
+    lista = models.listar_clientes(barbearia_logada())
     return render_template("clientes.html", clientes=lista)
 
 
@@ -148,7 +160,7 @@ def novo_cliente():
     """Cadastra um novo cliente."""
     nome = request.form["nome"]
     telefone = request.form.get("telefone")
-    models.criar_cliente(nome, telefone)
+    models.criar_cliente(barbearia_logada(), nome, telefone)
     return redirect(url_for("clientes"))
 
 
@@ -156,14 +168,15 @@ def novo_cliente():
 @login_obrigatorio
 def atendimentos():
     """Lista os atendimentos (o barbeiro vê só os dele)."""
+    barbearia_id = barbearia_logada()
     barbeiro_id = barbeiro_logado()
-    lista = models.listar_atendimentos(barbeiro_id)
-    clientes = models.listar_clientes()
+    lista = models.listar_atendimentos(barbearia_id, barbeiro_id)
+    clientes = models.listar_clientes(barbearia_id)
     if barbeiro_id is not None:
-        barbeiros = [models.buscar_barbeiro(barbeiro_id)]
+        barbeiros = [models.buscar_barbeiro(barbearia_id, barbeiro_id)]
     else:
-        barbeiros = models.listar_barbeiros()
-    servicos = models.listar_servicos()
+        barbeiros = models.listar_barbeiros(barbearia_id)
+    servicos = models.listar_servicos(barbearia_id)
     return render_template(
         "atendimentos.html",
         atendimentos=lista,
@@ -176,7 +189,10 @@ def atendimentos():
 @app.route("/atendimentos/novo", methods=["POST"])
 @login_obrigatorio
 def novo_atendimento():
-    """Registra um novo atendimento (o barbeiro só registra em seu nome)."""
+    """
+    Registra um novo atendimento (o barbeiro só registra em seu nome).
+    Cliente, barbeiro ou serviço de outra barbearia dá erro 400.
+    """
     cliente_id = request.form["cliente_id"]
     barbeiro_id = barbeiro_logado()
     if barbeiro_id is None:
@@ -185,19 +201,24 @@ def novo_atendimento():
     valor_cobrado = request.form["valor_cobrado"]
     forma_pagamento = request.form.get("forma_pagamento", "dinheiro")
 
-    models.criar_atendimento(
-        cliente_id, barbeiro_id, servico_id, valor_cobrado, forma_pagamento
-    )
+    try:
+        models.criar_atendimento(
+            barbearia_logada(), cliente_id, barbeiro_id, servico_id,
+            valor_cobrado, forma_pagamento,
+        )
+    except ValueError:
+        abort(400)
     return redirect(url_for("atendimentos"))
 
 
 @app.route("/relatorios")
 @somente_dono
 def relatorios():
-    """Exibe relatórios financeiros detalhados."""
-    total = reports.faturamento_total()
-    comissoes = reports.comissoes_por_barbeiro()
-    servicos = reports.servicos_mais_vendidos()
+    """Exibe relatórios financeiros detalhados da barbearia."""
+    barbearia_id = barbearia_logada()
+    total = reports.faturamento_total(barbearia_id)
+    comissoes = reports.comissoes_por_barbeiro(barbearia_id)
+    servicos = reports.servicos_mais_vendidos(barbearia_id)
     return render_template(
         "relatorios.html",
         total=total,
@@ -207,4 +228,5 @@ def relatorios():
 
 
 if __name__ == "__main__":
+    database.atualizar_banco()  # banco antigo: separa os dados por barbearia
     app.run(debug=DEBUG)

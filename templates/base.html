@@ -17,7 +17,7 @@
             <li><a href="{{ url_for('relatorios') }}">Relatórios</a></li>
             {% endif %}
             <li class="usuario-logado">
-                {{ g.usuario.usuario }} ({{ g.usuario.papel }})
+                {{ g.barbearia.nome }} · {{ g.usuario.usuario }} ({{ g.usuario.papel }})
                 <form method="POST" action="{{ url_for('logout') }}" class="form-sair">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit">Sair</button>
