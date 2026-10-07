@@ -32,11 +32,10 @@ cadastrá-los), e rodar `python database.py` **apaga todos os dados**
 2. **Autenticação e permissões**
    - ~~Tabela `usuarios` com senha em hash (`werkzeug.security`), papéis
      *dono* e *barbeiro* (barbeiro vê só as próprias comissões).~~ Feito.
-   - ~~Tela para o dono trocar a própria senha.~~ Feito (encerra as
+   - ~~Tela para o usuário (dono ou barbeiro) trocar a própria senha.~~ Feito (encerra as
      sessões abertas em outros aparelhos).
    - Papel *recepção*, tela para o dono gerenciar usuários (hoje é pelo
-     `criar_usuario.py`), troca de senha pelo barbeiro e recuperação de
-     senha por e-mail.
+     `criar_usuario.py`) e recuperação de senha por e-mail.
 3. **Segurança web**
    - ~~`SECRET_KEY` via variável de ambiente e proteção CSRF nos
      formulários (Flask-WTF).~~ Feito.

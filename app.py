@@ -166,9 +166,9 @@ def logout():
 
 
 @app.route("/conta/senha", methods=["GET", "POST"])
-@somente_dono
+@login_obrigatorio
 def trocar_senha():
-    """Tela para o dono trocar a própria senha."""
+    """Tela para o usuário logado (dono ou barbeiro) trocar a própria senha."""
     if request.method == "POST":
         nova_senha = request.form.get("nova_senha", "")
         if nova_senha != request.form.get("confirmacao", ""):

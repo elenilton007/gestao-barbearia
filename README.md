@@ -45,7 +45,7 @@ Depois de duas décadas gerindo um negócio próprio (fluxo de caixa, comissão 
     **15 minutos** (nem a senha certa entra nesse tempo); o login certo
     zera a contagem
   - a sessão **expira após 30 minutos sem uso** (configurável)
-  - o dono troca a própria senha em **Trocar senha**, no menu; as sessões
+  - cada usuário (dono ou barbeiro) troca a própria senha em **Trocar senha**, no menu; as sessões
     abertas em outros aparelhos são encerradas
 - **Dashboard gerencial**: faturamento do mês, ticket médio, top serviços, top clientes, comissões
 - **Cadastro de clientes**
