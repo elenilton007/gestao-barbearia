@@ -1,0 +1,23 @@
+# Blueprint do Render: cria o banco PostgreSQL e o site (a partir do
+# Dockerfile) de uma vez. Veja o passo a passo no README.
+databases:
+  - name: gestao-barbearia-db
+    plan: free
+    databaseName: barbearia
+    user: barbearia
+
+services:
+  - type: web
+    name: gestao-barbearia
+    runtime: docker
+    plan: free
+    healthCheckPath: /login
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: gestao-barbearia-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: COOKIE_SEGURO
+        value: "1"

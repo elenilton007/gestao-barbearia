@@ -9,7 +9,28 @@ permissions:
 
 jobs:
   pytest:
+    name: pytest (${{ matrix.banco }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        banco: [sqlite, postgres]
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: barbearia
+          POSTGRES_PASSWORD: barbearia
+          POSTGRES_DB: barbearia_teste
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - uses: actions/checkout@v4
 
@@ -25,4 +46,24 @@ jobs:
         run: pip install -r requirements-dev.txt
 
       - name: Rodar os testes
+        env:
+          TEST_DATABASE_URL: ${{ matrix.banco == 'postgres' && 'postgresql://barbearia:barbearia@localhost:5432/barbearia_teste' || '' }}
         run: pytest -v
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Construir a imagem
+        run: docker build -t gestao-barbearia .
+
+      - name: Subir o contêiner e abrir a tela de login
+        run: |
+          docker run -d --name app -p 8000:8000 -e SECRET_KEY=chave-de-teste gestao-barbearia
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:8000/login > /dev/null && exit 0
+            sleep 1
+          done
+          docker logs app
+          exit 1
