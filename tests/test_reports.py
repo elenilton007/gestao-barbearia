@@ -2,7 +2,7 @@
 test_reports.py
 
 Testes automatizados para os cálculos de relatórios financeiros
-do Sistema de Gestão de Barbearia.
+do MeuBarber.
 """
 
 import pytest

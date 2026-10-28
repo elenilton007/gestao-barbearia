@@ -2,12 +2,12 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Gestão de Barbearia</title>
+    <title>MeuBarber — gestão e agendamento para barbearias</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <nav class="navbar">
-        <h1>💈 Gestão de Barbearia</h1>
+        <h1>💈 MeuBarber</h1>
         {% if g.usuario %}
         <ul>
             <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>

@@ -5,7 +5,7 @@
 # Veja o passo a passo no README.
 services:
   - type: web
-    name: gestao-barbearia
+    name: meubarber
     runtime: docker
     plan: free
     healthCheckPath: /login

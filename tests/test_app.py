@@ -15,7 +15,7 @@ from conftest import BARBEARIA
 def test_paginas_carregam(client, rota):
     resposta = client.get(rota)
     assert resposta.status_code == 200
-    assert "Gestão de Barbearia" in resposta.get_data(as_text=True)
+    assert "MeuBarber" in resposta.get_data(as_text=True)
 
 
 def test_dashboard_mostra_faturamento(client):

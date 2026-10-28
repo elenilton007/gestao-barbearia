@@ -1,4 +1,4 @@
-# 💈 Sistema de Gestão de Barbearia
+# 💈 MeuBarber — gestão e agendamento para barbearias
 
 [![Testes](https://github.com/elenilton007/gestao-barbearia/actions/workflows/testes.yml/badge.svg)](https://github.com/elenilton007/gestao-barbearia/actions/workflows/testes.yml)
 
@@ -255,7 +255,7 @@ As tabelas não precisam ser criadas à mão: o site cria quando sobe.
 1. Crie uma conta em <https://render.com> entrando com o GitHub e
    autorize o acesso ao repositório `gestao-barbearia`.
 2. No painel, clique em **New → Blueprint** e escolha o repositório. O
-   Render lê o `render.yaml` e monta o site **gestao-barbearia** no plano
+   Render lê o `render.yaml` e monta o site **meubarber** no plano
    **Free**, a partir do `Dockerfile`, com uma `SECRET_KEY` aleatória e
    `COOKIE_SEGURO=1`.
 3. O Render pede os valores das variáveis e confirme em **Apply**:
@@ -270,7 +270,7 @@ As tabelas não precisam ser criadas à mão: o site cria quando sobe.
    banco ainda não tem nenhum usuário, ele também cria a barbearia e o
    dono de `DONO_USUARIO`/`DONO_SENHA`. Depois sobe o Gunicorn.
 5. O endereço do site aparece no topo da página do serviço, algo como
-   **https://gestao-barbearia.onrender.com**. Entre com o usuário e a
+   **https://meubarber.onrender.com**. Entre com o usuário e a
    senha do dono e cadastre os barbeiros, os serviços e os usuários dos
    barbeiros pelas telas.
 6. Depois de entrar, apague `DONO_SENHA` em **Environment** no Render
@@ -327,7 +327,7 @@ conectando direto no banco do Neon:
 
 ### 4. Passar o endereço para a barbearia
 
-Mande o link (por exemplo `https://gestao-barbearia.onrender.com`) para o
+Mande o link (por exemplo `https://meubarber.onrender.com`) para o
 dono e os barbeiros. Cada um entra com o próprio usuário e senha, de
 qualquer navegador. No celular, dá para usar **Adicionar à tela de
 início** para abrir como um aplicativo.
