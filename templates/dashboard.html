@@ -1,60 +1,74 @@
 {% extends "base.html" %}
 
-{% block content %}
-<h2>📊 Dashboard</h2>
+{% block titulo %}{{ 'Painel' if g.usuario.papel == 'dono' else 'Minhas Comissões' }}{% endblock %}
 
-{% if g.usuario.papel == "dono" %}
-<div class="card">
-    <h3>Faturamento Total</h3>
-    <p class="valor-destaque">R$ {{ "%.2f"|format(total) }}</p>
-</div>
+{% block content %}
+{% set dono = g.usuario.papel == "dono" %}
+<header class="cabecalho">
+    <div>
+        <h1>{{ 'Painel' if dono else 'Minhas Comissões' }}</h1>
+        <p>{{ 'Tudo o que a barbearia faturou desde o começo.' if dono else 'O que você atendeu e a sua comissão.' }}</p>
+    </div>
+    {% if dono %}<a class="botao secundario" href="{{ url_for('relatorios') }}">Ver relatórios</a>{% endif %}
+</header>
+
+{% if dono %}
+<section class="painel">
+    <h2>Faturamento Total</h2>
+    <p class="destaque-valor">{{ total|brl }}</p>
+</section>
 {% endif %}
 
-<div class="card">
-    <h3>{% if g.usuario.papel == "dono" %}Comissões por Barbeiro{% else %}Minhas Comissões{% endif %}</h3>
-    <table>
-        <thead>
-            <tr>
-                <th>Barbeiro</th>
-                <th>Faturado</th>
-                <th>Comissão atual (%)</th>
-                <th>Valor da Comissão</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for c in comissoes %}
-            <tr>
-                <td>{{ c.barbeiro }}</td>
-                <td>R$ {{ "%.2f"|format(c.total_faturado) }}</td>
-                <td>{{ c.comissao_percentual }}%</td>
-                <td>R$ {{ "%.2f"|format(c.comissao_valor) }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+<section class="painel">
+    <h2>{% if dono %}Comissões por barbeiro{% else %}Comissão{% endif %}</h2>
+    {% set maior = (comissoes|map(attribute='total_faturado')|max) if comissoes else 0 %}
+    <div class="tabela-rolagem">
+        <table>
+            <thead>
+                <tr>
+                    <th>Barbeiro</th>
+                    <th class="numero">Faturado</th>
+                    <th></th>
+                    <th class="numero">Comissão atual</th>
+                    <th class="numero">Valor da comissão</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in comissoes %}
+                <tr>
+                    <td>{{ c.barbeiro }}</td>
+                    <td class="numero">{{ c.total_faturado|brl }}</td>
+                    <td style="width: 28%"><div class="barra-valor"><i style="width: {{ (100 * c.total_faturado / maior) if maior else 0 }}%"></i></div></td>
+                    <td class="numero">{{ c.comissao_percentual|percentual }}</td>
+                    <td class="numero">{{ c.comissao_valor|brl }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="vazio">Nenhum atendimento ainda.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
 
-{% if g.usuario.papel == "dono" %}
-<div class="card">
-    <h3>Serviços Mais Vendidos</h3>
-    <table>
-        <thead>
-            <tr>
-                <th>Serviço</th>
-                <th>Quantidade</th>
-                <th>Faturado</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for s in servicos %}
-            <tr>
-                <td>{{ s.servico }}</td>
-                <td>{{ s.quantidade }}</td>
-                <td>R$ {{ "%.2f"|format(s.total_faturado) }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+{% if dono %}
+<section class="painel">
+    <h2>Serviços Mais Vendidos</h2>
+    <div class="tabela-rolagem">
+        <table>
+            <thead><tr><th>Serviço</th><th class="numero">Quantidade</th><th class="numero">Faturado</th></tr></thead>
+            <tbody>
+                {% for s in servicos %}
+                <tr>
+                    <td>{{ s.servico }}</td>
+                    <td class="numero">{{ s.quantidade }}</td>
+                    <td class="numero">{{ s.total_faturado|brl }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="3" class="vazio">Nenhum serviço vendido ainda.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
 {% endif %}
 {% endblock %}

@@ -1,31 +1,36 @@
 {% extends "base.html" %}
 
-{% block content %}
-<h2>💈 Editar Barbeiro</h2>
+{% block titulo %}{{ barbeiro.nome }}{% endblock %}
 
-<div class="card">
-    <h3>{{ barbeiro.nome }}</h3>
+{% block content %}
+<div class="conteudo-estreito">
+<a class="voltar" href="{{ url_for('barbeiros') }}">Voltar para Barbeiros</a>
+<header class="cabecalho"><h1>{{ barbeiro.nome }}</h1></header>
+
+<section class="painel">
     <form method="POST" action="{{ url_for('editar_barbeiro', barbeiro_id=barbeiro.id) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <label for="nome">Nome:</label>
-        <input type="text" id="nome" name="nome" value="{{ barbeiro.nome }}" required>
-
-        <label for="comissao_percentual">Comissão (%):</label>
-        <input type="number" step="0.01" min="0" max="100" id="comissao_percentual"
-               name="comissao_percentual" value="{{ barbeiro.comissao_percentual }}" required>
-        <p class="dica">Vale para os próximos atendimentos: os já registrados
-            guardam o percentual da época.</p>
-
-        <label for="unidade_id">Unidade onde atende:</label>
-        <select id="unidade_id" name="unidade_id">
-            <option value="">Todas as unidades</option>
-            {% for unidade in unidades %}
-            <option value="{{ unidade.id }}" {{ 'selected' if barbeiro.unidade_id == unidade.id else '' }}>{{ unidade.nome }}{{ '' if unidade.ativo else ' (desativada)' }}</option>
-            {% endfor %}
-        </select>
-
-        <button type="submit">Salvar</button>
+        <div class="campo">
+            <label for="nome">Nome</label>
+            <input type="text" id="nome" name="nome" value="{{ barbeiro.nome }}" required>
+        </div>
+        <div class="campo">
+            <label for="comissao_percentual">Comissão (%)</label>
+            <input type="number" step="0.01" min="0" max="100" id="comissao_percentual"
+                   name="comissao_percentual" value="{{ barbeiro.comissao_percentual }}" inputmode="decimal" required>
+            <p class="dica">Vale para os próximos atendimentos: os já registrados guardam o percentual da época.</p>
+        </div>
+        <div class="campo">
+            <label for="unidade_id">Unidade onde atende</label>
+            <select id="unidade_id" name="unidade_id">
+                <option value="">Todas as unidades</option>
+                {% for unidade in unidades %}
+                <option value="{{ unidade.id }}" {{ 'selected' if barbeiro.unidade_id == unidade.id else '' }}>{{ unidade.nome }}{{ '' if unidade.ativo else ' (desativada)' }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit">Salvar alterações</button>
     </form>
-    <p><a href="{{ url_for('barbeiros') }}">Voltar</a></p>
+</section>
 </div>
 {% endblock %}

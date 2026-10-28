@@ -29,6 +29,9 @@ from database import get_connection
 STATUS = ("marcado", "concluido", "faltou", "cancelado")
 FORMAS_PAGAMENTO = ("dinheiro", "cartao", "pix")
 DIAS_DA_SEMANA = ("Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo")
+DIAS_CURTOS = ("Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom")
+MESES = ("janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho",
+         "agosto", "setembro", "outubro", "novembro", "dezembro")
 
 # De quantos em quantos minutos a agenda oferece horários (9:00, 9:15...).
 PASSO_MINUTOS = 15
@@ -679,6 +682,57 @@ def listar_agenda(barbearia_id, dia, unidade_id=None, barbeiro_id=None):
         return _com_servicos(conn, linhas)
     finally:
         conn.close()
+
+
+def contar_por_dia(barbearia_id, primeiro_dia, dias, unidade_id=None, barbeiro_id=None):
+    """{date: quantos horários (sem os cancelados)} de primeiro_dia em diante."""
+    primeiro_dia = ler_data(primeiro_dia)
+    filtro, parametros = "", [
+        barbearia_id,
+        _texto(datetime.combine(primeiro_dia, datetime.min.time())),
+        _texto(datetime.combine(primeiro_dia + timedelta(days=dias), datetime.min.time())),
+    ]
+    if unidade_id is not None:
+        filtro += " AND unidade_id = ?"
+        parametros.append(unidade_id)
+    if barbeiro_id is not None:
+        filtro += " AND barbeiro_id = ?"
+        parametros.append(barbeiro_id)
+    conn = get_connection()
+    linhas = conn.execute(
+        f"""
+        SELECT substr(inicio, 1, 10) AS dia, COUNT(*) AS total FROM agendamentos
+        WHERE barbearia_id = ? AND inicio >= ? AND inicio < ?
+          AND status != 'cancelado' {filtro}
+        GROUP BY substr(inicio, 1, 10)
+        """,
+        parametros,
+    ).fetchall()
+    conn.close()
+    contagem = {primeiro_dia + timedelta(days=i): 0 for i in range(dias)}
+    for linha in linhas:
+        contagem[ler_data(linha["dia"])] = linha["total"]
+    return contagem
+
+
+def bloqueios_do_dia(barbearia_id, dia, barbeiro_id=None):
+    """Bloqueios que tocam o dia, já cortados no começo e no fim do dia."""
+    dia = ler_data(dia)
+    comeco = datetime.combine(dia, datetime.min.time())
+    fim_do_dia = comeco + timedelta(days=1)
+    resultado = []
+    for bloqueio in listar_bloqueios(barbearia_id, comeco, barbeiro_id):
+        inicio, fim = ler_momento(bloqueio["inicio"]), ler_momento(bloqueio["fim"])
+        if inicio >= fim_do_dia:
+            continue
+        resultado.append({
+            "id": bloqueio["id"],
+            "barbeiro_id": bloqueio["barbeiro_id"],
+            "motivo": bloqueio["motivo"],
+            "inicio": max(inicio, comeco),
+            "fim": min(fim, fim_do_dia),
+        })
+    return resultado
 
 
 def buscar_agendamento(barbearia_id, agendamento_id):

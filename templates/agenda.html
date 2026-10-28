@@ -1,230 +1,398 @@
 {% extends "base.html" %}
 
-{% block content %}
-{% set voltar = url_for('agenda_dia', data=dia.isoformat(), unidade=unidade.id if unidade else None) %}
-<h2>📅 Agenda</h2>
+{% block titulo %}Agenda{% endblock %}
 
-<div class="card agenda-topo">
-    <div class="navega-dia">
-        <a class="botao-link" href="{{ url_for('agenda_dia', data=anterior.isoformat(), unidade=unidade.id if unidade else None) }}" aria-label="Dia anterior">←</a>
-        <form method="GET" action="{{ url_for('agenda_dia') }}" class="form-dia">
-            {% if unidade %}<input type="hidden" name="unidade" value="{{ unidade.id }}">{% endif %}
-            <input type="date" name="data" value="{{ dia.isoformat() }}" onchange="this.form.submit()" aria-label="Dia">
-        </form>
-        <a class="botao-link" href="{{ url_for('agenda_dia', data=seguinte.isoformat(), unidade=unidade.id if unidade else None) }}" aria-label="Próximo dia">→</a>
-        {% if dia != hoje %}
-        <a href="{{ url_for('agenda_dia', unidade=unidade.id if unidade else None) }}">Hoje</a>
-        {% endif %}
+{% block content %}
+{% set u = unidade.id if unidade else None %}
+{% set voltar = url_for('agenda_dia', data=dia.isoformat(), unidade=u) %}
+{% set dono = g.usuario.papel == 'dono' %}
+
+<header class="cabecalho cab-agenda">
+    <div>
+        <h1>{{ titulo_dia }}</h1>
+        <p>
+            {% if unidade %}{{ unidade.nome }}, {% endif %}
+            {%- if faixas %}aberta {% for abre, fecha in faixas %}das {{ abre }} às {{ fecha }}{{ ' e ' if not loop.last }}{% endfor %}
+            {%- else %}fechada neste dia{% endif %}
+        </p>
     </div>
-    <p class="dia-titulo">{{ dia_da_semana }}, {{ dia.strftime('%d/%m/%Y') }}
-        {% if horario_unidade %}· aberto {% for abre, fecha in horario_unidade %}{{ abre }}–{{ fecha }}{{ ', ' if not loop.last }}{% endfor %}
-        {% else %}· <strong>fechado</strong>{% endif %}
-    </p>
-    {% if unidades|length > 1 %}
-    <form method="GET" action="{{ url_for('agenda_dia') }}" class="form-dia">
-        <input type="hidden" name="data" value="{{ dia.isoformat() }}">
-        <label for="unidade-filtro">Unidade:</label>
-        <select id="unidade-filtro" name="unidade" onchange="this.form.submit()">
-            {% for u in unidades %}
-            <option value="{{ u.id }}" {{ 'selected' if unidade and u.id == unidade.id }}>{{ u.nome }}</option>
-            {% endfor %}
-        </select>
-    </form>
-    {% endif %}
-    <p class="resumo-dia"><strong>{{ marcados }}</strong> horário(s) a atender ·
-        previsto <strong>R$ {{ "%.2f"|format(previsto) }}</strong></p>
-</div>
+    <div class="acoes-topo">
+        {% if unidades|length > 1 %}
+        <form method="GET" action="{{ url_for('agenda_dia') }}">
+            <input type="hidden" name="data" value="{{ dia.isoformat() }}">
+            <label for="unidade-filtro" class="so-leitor">Unidade</label>
+            <select id="unidade-filtro" name="unidade" onchange="this.form.submit()">
+                {% for item_unidade in unidades %}
+                <option value="{{ item_unidade.id }}" {{ 'selected' if unidade and item_unidade.id == unidade.id }}>{{ item_unidade.nome }}</option>
+                {% endfor %}
+            </select>
+            <noscript><button type="submit" class="secundario">Ver</button></noscript>
+        </form>
+        {% endif %}
+        {% if dia != hoje %}<a class="botao secundario" href="{{ url_for('agenda_dia', unidade=u) }}">Ir para hoje</a>{% endif %}
+        {% if unidade %}<button type="button" data-abrir="janela-marcar">Marcar horário</button>{% endif %}
+    </div>
+</header>
+
+<nav class="semana" aria-label="Dias da semana">
+    <a class="seta" href="{{ url_for('agenda_dia', data=semana_anterior.isoformat(), unidade=u) }}" aria-label="Semana anterior">‹</a>
+    {% for d in semana %}
+    <a href="{{ url_for('agenda_dia', data=d.data.isoformat(), unidade=u) }}"
+       class="{{ 'hoje' if d.data == hoje }} {{ 'fechado' if d.fechado and not d.total }}"
+       {% if d.data == dia %}aria-current="date"{% endif %}>
+        <span class="dia-sem">{{ d.curto }}</span>
+        <span class="dia-num">{{ d.data.day }}</span>
+        <span class="dia-qtd">{% if d.total %}{{ d.total }} horário{{ 's' if d.total > 1 }}{% elif d.fechado %}fechado{% else %}livre{% endif %}</span>
+    </a>
+    {% endfor %}
+    <a class="seta" href="{{ url_for('agenda_dia', data=semana_seguinte.isoformat(), unidade=u) }}" aria-label="Próxima semana">›</a>
+</nav>
 
 {% if not unidade %}
-<div class="card"><p>Nenhuma unidade ativa. {% if g.usuario.papel == 'dono' %}Reative uma em <a href="{{ url_for('unidades') }}">Unidades</a>.{% endif %}</p></div>
+<div class="painel">
+    <p class="vazio">Nenhuma unidade ativa.
+        {% if dono %}Reative uma em <a href="{{ url_for('unidades') }}">Unidades</a> para usar a agenda.{% endif %}</p>
+</div>
 {% else %}
 
-<div class="card">
-    <h3>Novo agendamento</h3>
-    <form method="POST" action="{{ url_for('novo_agendamento') }}" id="form-agendar">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="unidade_id" id="ag-unidade" value="{{ unidade.id }}">
-
-        <fieldset>
-            <legend>Serviços</legend>
-            {% for servico in servicos %}
-            <label class="opcao">
-                <input type="checkbox" name="servico_id" value="{{ servico.id }}" class="ag-servico">
-                {{ servico.nome }} · R$ {{ "%.2f"|format(servico.preco) }} · {{ servico.duracao_minutos }} min
-            </label>
-            {% else %}
-            <p class="dica">Nenhum serviço ativo.</p>
-            {% endfor %}
-        </fieldset>
-
-        {% if g.usuario.papel == 'dono' %}
-        <label for="ag-barbeiro">Barbeiro:</label>
-        <select id="ag-barbeiro" name="barbeiro_id">
-            <option value="">Sem preferência (primeiro livre)</option>
-            {% for barbeiro in barbeiros %}
-            <option value="{{ barbeiro.id }}">{{ barbeiro.nome }}</option>
-            {% endfor %}
-        </select>
-        {% endif %}
-
-        <label for="ag-data">Dia:</label>
-        <input type="date" id="ag-data" name="data" value="{{ dia.isoformat() }}" min="{{ hoje.isoformat() }}" required>
-
-        <label for="ag-hora">Horário:</label>
-        <select id="ag-hora" name="hora" required>
-            <option value="">Escolha os serviços primeiro</option>
-        </select>
-        <p class="dica" id="ag-aviso"></p>
-
-        <label for="ag-cliente">Cliente:</label>
-        <select id="ag-cliente" name="cliente_id">
-            <option value="">— cliente novo (preencha abaixo) —</option>
-            {% for cliente in clientes %}
-            <option value="{{ cliente.id }}">{{ cliente.nome }}{% if cliente.telefone %} · {{ cliente.telefone }}{% endif %}</option>
-            {% endfor %}
-        </select>
-        <div id="ag-novo-cliente" class="grupo">
-            <label for="novo_cliente_nome">Nome do cliente novo:</label>
-            <input type="text" id="novo_cliente_nome" name="novo_cliente_nome">
-            <label for="novo_cliente_telefone">Telefone (WhatsApp):</label>
-            <input type="tel" id="novo_cliente_telefone" name="novo_cliente_telefone" placeholder="(71) 90000-0000">
+<div class="agenda-corpo">
+    {# ---------- QUADRO (computador) ---------- #}
+    <section class="quadro" style="--colunas: {{ colunas|length or 1 }}" aria-label="Agenda do dia por barbeiro">
+        {% if colunas %}
+        <div class="quadro-horas" style="height: calc({{ minutos_quadro }} * var(--ppm))" aria-hidden="true">
+            {% for h in horas_quadro %}<span style="top: calc({{ h.ini }} * var(--ppm))">{{ h.texto }}</span>{% endfor %}
         </div>
-
-        <label for="observacao">Observação:</label>
-        <input type="text" id="observacao" name="observacao" maxlength="200">
-
-        <button type="submit">Marcar horário</button>
-    </form>
-</div>
-
-{% for barbeiro_id, itens in por_barbeiro.items() %}
-<div class="card">
-    <h3>💈 {{ nomes[barbeiro_id] }}</h3>
-    {% for item in itens %}
-    <div class="agendamento status-{{ item.status }}">
-        <div class="ag-hora">{{ item.hora }}<span>–{{ item.hora_fim }}</span></div>
-        <div class="ag-info">
-            <strong>{{ item.cliente }}</strong>
-            {% if item.telefone %}<span class="ag-tel">{{ item.telefone }}</span>{% endif %}
-            <div>{{ item.servicos|join(' + ') }} · R$ {{ "%.2f"|format(item.total) }}</div>
-            {% if item.observacao %}<div class="dica">{{ item.observacao }}</div>{% endif %}
-            <span class="selo selo-{{ item.status }}">{{ {'marcado': 'Marcado', 'concluido': 'Concluído', 'faltou': 'Faltou', 'cancelado': 'Cancelado'}[item.status] }}</span>
-        </div>
-        {% if item.status == 'marcado' %}
-        <div class="ag-acoes">
-            {% if dia <= hoje %}
-            <form method="POST" action="{{ url_for('concluir_agendamento', agendamento_id=item.id) }}" class="form-linha">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="voltar" value="{{ voltar }}">
-                <select name="forma_pagamento" aria-label="Forma de pagamento">
-                    {% for forma in formas_pagamento %}
-                    <option value="{{ forma }}">{{ {'dinheiro': 'Dinheiro', 'cartao': 'Cartão', 'pix': 'Pix'}[forma] }}</option>
-                    {% endfor %}
-                </select>
-                <button type="submit">Concluir</button>
-            </form>
-            <form method="POST" action="{{ url_for('falta_agendamento', agendamento_id=item.id) }}" class="form-linha">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="voltar" value="{{ voltar }}">
-                <button type="submit" class="secundario">Faltou</button>
-            </form>
+        <div class="quadro-colunas">
+            {% if linha_agora %}
+            <div class="agora" style="--ini: {{ linha_agora.ini }}"><span>{{ linha_agora.hora }}</span></div>
             {% endif %}
-            <form method="POST" action="{{ url_for('cancelar_agendamento', agendamento_id=item.id) }}" class="form-linha"
-                  onsubmit='return confirm({{ ("Cancelar o horário de " ~ item.cliente ~ " às " ~ item.hora ~ "?")|tojson }})'>
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="voltar" value="{{ voltar }}">
-                <button type="submit" class="secundario">Cancelar</button>
-            </form>
+            {% for coluna in colunas %}
+            <div class="quadro-coluna">
+                <div class="barbeiro-cab">
+                    <span class="avatar" aria-hidden="true">{{ coluna.iniciais }}</span>
+                    <div>
+                        <strong>{{ coluna.nome }}</strong>
+                        <small>{{ coluna.itens|selectattr('status', 'ne', 'cancelado')|list|length }} horários, {{ coluna.ocupacao }}% da agenda</small>
+                    </div>
+                    <i class="ocupacao" style="--ocupacao: {{ [coluna.ocupacao, 100]|min }}%"></i>
+                </div>
+                <div class="trilho" style="--minutos: {{ minutos_quadro }}">
+                    {% for b in coluna.bloqueios %}
+                    <div class="bloco bloqueio {{ 'curto' if b.dur < 30 }}" style="--ini: {{ b.ini }}; --dur: {{ b.dur }}">
+                        <span class="b-hora">{{ b.hora }}</span><strong>{{ b.motivo or 'Bloqueado' }}</strong>
+                    </div>
+                    {% endfor %}
+                    {% for item in coluna.itens %}
+                    <button type="button" class="bloco st-{{ item.status }} {{ 'curto' if item.dur < 35 else ('medio' if item.dur < 48) }}"
+                            style="--ini: {{ item.ini }}; --dur: {{ item.dur }}" data-abrir="ag-{{ item.id }}">
+                        <span class="b-hora">{{ item.hora }}</span>
+                        <strong>{{ item.cliente }}</strong>
+                        <span class="b-serv">{{ item.servicos|join(', ') }}</span>
+                        {% if item.origem == 'online' %}<span class="marca-online">pelo link</span>{% endif %}
+                        {% if item.status != 'marcado' %}<span class="b-estado">{{ NOMES_STATUS[item.status] }}</span>{% endif %}
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
         </div>
+        {% else %}
+        <p class="quadro-vazio">Nenhum barbeiro atende nesta unidade.
+            {% if dono %}Escolha a unidade de cada um em <a href="{{ url_for('barbeiros') }}">Barbeiros</a>.{% endif %}</p>
         {% endif %}
-    </div>
-    {% else %}
-    <p class="dica">Nenhum horário marcado neste dia.</p>
-    {% endfor %}
-</div>
-{% endfor %}
-{% endif %}
+    </section>
 
-<div class="card">
-    <h3>Bloqueios (folga, almoço, férias)</h3>
+    {# ---------- LISTA (celular) ---------- #}
+    <div class="lista-dia">
+        {% for coluna in colunas %}
+        <section aria-label="Agenda de {{ coluna.nome }}">
+            <h2><span class="avatar" aria-hidden="true">{{ coluna.iniciais }}</span>{{ coluna.nome }}</h2>
+            {% for item in coluna.itens %}
+            <button type="button" class="item st-{{ item.status }}" data-abrir="ag-{{ item.id }}">
+                <time>{{ item.hora }}<small>até {{ item.hora_fim }}</small></time>
+                <span>
+                    <strong>{{ item.cliente }}</strong><br>
+                    {{ item.servicos|join(', ') }}, {{ item.total|brl }}<br>
+                    <span class="situacao st-{{ item.status }}">{{ NOMES_STATUS[item.status] }}{% if item.origem == 'online' %} pelo link{% endif %}</span>
+                </span>
+            </button>
+            {% else %}
+            <p class="vazio">Nenhum horário marcado.</p>
+            {% endfor %}
+        </section>
+        {% endfor %}
+    </div>
+
+    {# ---------- CAIXA DO DIA ---------- #}
+    <aside class="caixa-dia" aria-labelledby="caixa-titulo">
+        <h2 id="caixa-titulo">Caixa do dia</h2>
+        <p class="caixa-total">{{ caixa.previsto|brl }}</p>
+        <p class="caixa-legenda">previsto com {{ itens|selectattr('status', 'in', ['marcado', 'concluido'])|list|length }} horários</p>
+        <div class="regua" role="img" aria-label="Recebido {{ caixa.recebido|brl }}, a receber {{ caixa.a_receber|brl }}, perdido com faltas {{ caixa.perdido|brl }}">
+            <i class="recebido" style="width: {{ caixa.partes.recebido }}%"></i>
+            <i class="a-receber" style="width: {{ caixa.partes.a_receber }}%"></i>
+            <i class="perdido" style="width: {{ caixa.partes.perdido }}%"></i>
+        </div>
+        <ul class="caixa-linhas">
+            <li><i class="ponto recebido"></i>Recebido<b>{{ caixa.recebido|brl }}</b></li>
+            <li><i class="ponto a-receber"></i>A receber<b>{{ caixa.a_receber|brl }}</b></li>
+            <li><i class="ponto perdido"></i>Perdido com faltas<b>{{ caixa.perdido|brl }}</b></li>
+        </ul>
+        {% if cancelados %}<p class="dica" style="margin-top: 10px">{{ cancelados }} horário{{ 's' if cancelados > 1 }} cancelado{{ 's' if cancelados > 1 }} no dia.</p>{% endif %}
+
+        <div class="a-seguir">
+            <h3>{{ 'A seguir' if dia == hoje else 'Primeiros do dia' }}</h3>
+            {% if a_seguir %}
+            <ol>
+                {% for item in a_seguir %}
+                <li><time>{{ item.hora }}</time><strong>{{ item.cliente }}</strong> com {{ item.barbeiro }}, {{ item.servicos|join(', ')|lower }}</li>
+                {% endfor %}
+            </ol>
+            {% else %}
+            <p class="dica">Nenhum horário marcado pela frente.</p>
+            {% endif %}
+        </div>
+    </aside>
+</div>
+
+{# ---------- BLOQUEIOS ---------- #}
+<details class="painel bloqueios-painel">
+    <summary>Folgas e bloqueios <small>{{ bloqueios|length }} pela frente</small></summary>
     <form method="POST" action="{{ url_for('novo_bloqueio') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="voltar" value="{{ voltar }}">
-        {% if g.usuario.papel == 'dono' %}
-        <label for="bl-barbeiro">Barbeiro:</label>
-        <select id="bl-barbeiro" name="barbeiro_id" required>
-            {% for barbeiro in todos_barbeiros %}
-            <option value="{{ barbeiro.id }}">{{ barbeiro.nome }}</option>
-            {% endfor %}
-        </select>
-        {% endif %}
-        <label for="bl-inicio">Início:</label>
-        <input type="datetime-local" id="bl-inicio" name="inicio" value="{{ dia.isoformat() }}T12:00" required>
-        <label for="bl-fim">Fim:</label>
-        <input type="datetime-local" id="bl-fim" name="fim" value="{{ dia.isoformat() }}T13:00" required>
-        <label for="bl-motivo">Motivo:</label>
-        <input type="text" id="bl-motivo" name="motivo" placeholder="Almoço, folga, médico..." maxlength="100">
-        <button type="submit">Bloquear</button>
+        <div class="grade-campos">
+            {% if dono %}
+            <div class="campo inteiro">
+                <label for="bl-barbeiro">Barbeiro</label>
+                <select id="bl-barbeiro" name="barbeiro_id" required>
+                    {% for barbeiro in todos_barbeiros %}
+                    <option value="{{ barbeiro.id }}">{{ barbeiro.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            <div class="campo">
+                <label for="bl-inicio">Começa</label>
+                <input type="datetime-local" id="bl-inicio" name="inicio" value="{{ dia.isoformat() }}T12:00" required>
+            </div>
+            <div class="campo">
+                <label for="bl-fim">Termina</label>
+                <input type="datetime-local" id="bl-fim" name="fim" value="{{ dia.isoformat() }}T13:00" required>
+            </div>
+            <div class="campo inteiro">
+                <label for="bl-motivo">Motivo</label>
+                <input type="text" id="bl-motivo" name="motivo" placeholder="Almoço, folga, médico" maxlength="100">
+            </div>
+        </div>
+        <p class="dica">O bloqueio tira os horários da agenda, mas não desmarca quem já estava marcado.</p>
+        <button type="submit">Bloquear horário</button>
     </form>
-    <p class="dica">Bloqueio não desmarca o que já está marcado: confira a agenda do período.</p>
-    {% if bloqueios %}
-    <table>
-        <thead><tr><th>Barbeiro</th><th>De</th><th>Até</th><th>Motivo</th><th></th></tr></thead>
-        <tbody>
-            {% for bloqueio in bloqueios %}
-            <tr>
-                <td>{{ bloqueio.barbeiro }}</td>
-                <td>{{ bloqueio.inicio[8:10] }}/{{ bloqueio.inicio[5:7] }} {{ bloqueio.inicio[11:16] }}</td>
-                <td>{{ bloqueio.fim[8:10] }}/{{ bloqueio.fim[5:7] }} {{ bloqueio.fim[11:16] }}</td>
-                <td>{{ bloqueio.motivo or '' }}</td>
-                <td>
-                    <form method="POST" action="{{ url_for('remover_bloqueio', bloqueio_id=bloqueio.id) }}" class="form-linha">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <input type="hidden" name="voltar" value="{{ voltar }}">
-                        <button type="submit" class="secundario">Remover</button>
-                    </form>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% endif %}
-</div>
 
-{% if unidade %}
+    {% if bloqueios %}
+    <div class="tabela-rolagem" style="margin-top: 18px">
+        <table>
+            <thead><tr><th>Barbeiro</th><th>De</th><th>Até</th><th>Motivo</th><th></th></tr></thead>
+            <tbody>
+                {% for bloqueio in bloqueios %}
+                <tr>
+                    <td>{{ bloqueio.barbeiro }}</td>
+                    <td>{{ bloqueio.inicio|data_br }}</td>
+                    <td>{{ bloqueio.fim|data_br }}</td>
+                    <td>{{ bloqueio.motivo or '' }}</td>
+                    <td class="numero">
+                        <form method="POST" action="{{ url_for('remover_bloqueio', bloqueio_id=bloqueio.id) }}" class="form-linha">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="voltar" value="{{ voltar }}">
+                            <button type="submit" class="secundario pequeno">Remover</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</details>
+
+{# ---------- JANELA: MARCAR HORÁRIO ---------- #}
+<dialog id="janela-marcar" aria-labelledby="marcar-titulo">
+    <div class="janela-cab">
+        <div>
+            <h2 id="marcar-titulo">Novo agendamento</h2>
+            <p>{{ unidade.nome }}</p>
+        </div>
+        <button type="button" class="fechar" data-fechar aria-label="Fechar">×</button>
+    </div>
+    <div class="janela-corpo">
+        <form method="POST" action="{{ url_for('novo_agendamento') }}" id="form-agendar">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="unidade_id" id="ag-unidade" value="{{ unidade.id }}">
+
+            <fieldset>
+                <legend>Serviços</legend>
+                <div class="fichas">
+                    {% for servico in servicos %}
+                    <label class="ficha">
+                        <input type="checkbox" name="servico_id" value="{{ servico.id }}" class="ag-servico">
+                        <span>{{ servico.nome }}<small>{{ servico.preco|brl }}, {{ servico.duracao_minutos }} min</small></span>
+                    </label>
+                    {% else %}
+                    <p class="dica">Nenhum serviço ativo. {% if dono %}Cadastre em <a href="{{ url_for('servicos') }}">Serviços</a>.{% endif %}</p>
+                    {% endfor %}
+                </div>
+            </fieldset>
+
+            <div class="grade-campos">
+                {% if dono %}
+                <div class="campo">
+                    <label for="ag-barbeiro">Barbeiro</label>
+                    <select id="ag-barbeiro" name="barbeiro_id">
+                        <option value="">Sem preferência</option>
+                        {% for barbeiro in barbeiros %}
+                        <option value="{{ barbeiro.id }}">{{ barbeiro.nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                <div class="campo {{ '' if dono else 'inteiro' }}">
+                    <label for="ag-data">Dia</label>
+                    <input type="date" id="ag-data" name="data" value="{{ (dia if dia >= hoje else hoje).isoformat() }}" min="{{ hoje.isoformat() }}" required>
+                </div>
+            </div>
+
+            <fieldset>
+                <legend>Horário</legend>
+                <div class="fichas horarios" id="ag-horarios">
+                    <p class="horarios-aviso">Escolha os serviços para ver os horários livres.</p>
+                </div>
+            </fieldset>
+
+            <div class="campo">
+                <label for="ag-cliente">Cliente</label>
+                <select id="ag-cliente" name="cliente_id">
+                    <option value="">Cliente novo</option>
+                    {% for cliente in clientes %}
+                    <option value="{{ cliente.id }}">{{ cliente.nome }}{% if cliente.telefone %}, {{ cliente.telefone }}{% endif %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="cliente-novo" id="ag-novo-cliente">
+                <div class="campo">
+                    <label for="novo_cliente_nome">Nome</label>
+                    <input type="text" id="novo_cliente_nome" name="novo_cliente_nome" autocomplete="off">
+                </div>
+                <div class="campo">
+                    <label for="novo_cliente_telefone">WhatsApp</label>
+                    <input type="tel" id="novo_cliente_telefone" name="novo_cliente_telefone" placeholder="(71) 90000-0000" autocomplete="off">
+                </div>
+            </div>
+
+            <div class="campo">
+                <label for="observacao">Observação <span class="dica">(opcional)</span></label>
+                <input type="text" id="observacao" name="observacao" maxlength="200">
+            </div>
+
+            <button type="submit">Marcar horário</button>
+        </form>
+    </div>
+</dialog>
+
+{# ---------- JANELAS: CADA AGENDAMENTO ---------- #}
+{% for item in itens %}
+<dialog id="ag-{{ item.id }}" aria-labelledby="ag-{{ item.id }}-titulo">
+    <div class="janela-cab">
+        <div>
+            <h2 id="ag-{{ item.id }}-titulo">{{ item.cliente }}</h2>
+            <p>{{ item.hora }} às {{ item.hora_fim }} com {{ item.barbeiro }}</p>
+        </div>
+        <button type="button" class="fechar" data-fechar aria-label="Fechar">×</button>
+    </div>
+    <div class="janela-corpo">
+        <ul class="detalhe">
+            <li><span>Serviços</span><b>{{ item.servicos|join(', ') }}</b></li>
+            <li><span>Valor combinado</span><b>{{ item.total|brl }}</b></li>
+            <li><span>Situação</span><b>{{ NOMES_STATUS[item.status] }}</b></li>
+            {% if item.telefone %}<li><span>WhatsApp</span><b>{{ item.telefone }}</b></li>{% endif %}
+            <li><span>Marcado</span><b>{{ 'pelo link, pelo próprio cliente' if item.origem == 'online' else 'na barbearia' }}</b></li>
+            {% if item.observacao %}<li><span>Observação</span><b>{{ item.observacao }}</b></li>{% endif %}
+        </ul>
+        {% if item.status == 'marcado' %}
+        <div class="janela-acoes">
+            {% if dia <= hoje %}
+            <form method="POST" action="{{ url_for('concluir_agendamento', agendamento_id=item.id) }}" class="concluir">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="voltar" value="{{ voltar }}">
+                <label for="pg-{{ item.id }}" class="so-leitor">Forma de pagamento</label>
+                <select id="pg-{{ item.id }}" name="forma_pagamento">
+                    {% for forma in formas_pagamento %}
+                    <option value="{{ forma }}">{{ NOMES_PAGAMENTO[forma] }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit">Concluir e receber</button>
+            </form>
+            {% endif %}
+            <div class="linha-secundaria">
+                {% if dia <= hoje %}
+                <form method="POST" action="{{ url_for('falta_agendamento', agendamento_id=item.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="voltar" value="{{ voltar }}">
+                    <button type="submit" class="secundario">Cliente faltou</button>
+                </form>
+                {% endif %}
+                <form method="POST" action="{{ url_for('cancelar_agendamento', agendamento_id=item.id) }}"
+                      onsubmit='return confirm({{ ("Cancelar o horário de " ~ item.cliente ~ " às " ~ item.hora ~ "?")|tojson }})'>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="voltar" value="{{ voltar }}">
+                    <button type="submit" class="perigo">Cancelar horário</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</dialog>
+{% endfor %}
+
 <script>
 (function () {
+    // Janelas: botões com data-abrir="id" abrem o <dialog>; data-fechar fecha.
+    document.addEventListener("click", function (e) {
+        var abrir = e.target.closest("[data-abrir]");
+        if (abrir) {
+            var janela = document.getElementById(abrir.getAttribute("data-abrir"));
+            if (janela && janela.showModal) { janela.showModal(); }
+            return;
+        }
+        if (e.target.closest("[data-fechar]")) {
+            e.target.closest("dialog").close();
+            return;
+        }
+        if (e.target.tagName === "DIALOG") { e.target.close(); }  // clique fora
+    });
+
     var form = document.getElementById("form-agendar");
-    var hora = document.getElementById("ag-hora");
-    var aviso = document.getElementById("ag-aviso");
+    if (!form) { return; }
+    var lista = document.getElementById("ag-horarios");
     var data = document.getElementById("ag-data");
     var barbeiro = document.getElementById("ag-barbeiro");
     var cliente = document.getElementById("ag-cliente");
     var novoCliente = document.getElementById("ag-novo-cliente");
     var pedido = 0;
 
-    function servicos() {
-        return Array.prototype.filter.call(
-            form.querySelectorAll(".ag-servico"), function (c) { return c.checked; }
-        ).map(function (c) { return c.value; });
-    }
-
-    function opcao(valor, texto) {
-        var o = document.createElement("option");
-        o.value = valor;
-        o.textContent = texto;
-        return o;
+    function aviso(texto) {
+        lista.innerHTML = "";
+        var p = document.createElement("p");
+        p.className = "horarios-aviso";
+        p.textContent = texto;
+        lista.appendChild(p);
     }
 
     function atualizarHorarios() {
-        var escolhidos = servicos();
-        hora.innerHTML = "";
-        aviso.textContent = "";
-        if (!escolhidos.length) {
-            hora.appendChild(opcao("", "Escolha os serviços primeiro"));
-            return;
-        }
-        hora.appendChild(opcao("", "Carregando..."));
+        var escolhidos = Array.prototype.filter.call(
+            form.querySelectorAll(".ag-servico"), function (c) { return c.checked; }
+        ).map(function (c) { return c.value; });
+        if (!escolhidos.length) { aviso("Escolha os serviços para ver os horários livres."); return; }
+        aviso("Procurando horários livres...");
         var params = new URLSearchParams({
             unidade: document.getElementById("ag-unidade").value,
             data: data.value,
@@ -236,21 +404,27 @@
             .then(function (r) { return r.json(); })
             .then(function (resposta) {
                 if (este !== pedido) { return; }
-                hora.innerHTML = "";
                 if (!resposta.horarios.length) {
-                    hora.appendChild(opcao("", "Nenhum horário livre"));
-                    aviso.textContent = resposta.erro || "Tente outro dia ou outro barbeiro.";
+                    aviso(resposta.erro || "Nenhum horário livre neste dia. Tente outro dia ou outro barbeiro.");
                     return;
                 }
-                hora.appendChild(opcao("", "Escolha o horário"));
-                resposta.horarios.forEach(function (h) {
-                    hora.appendChild(opcao(h.hora, h.hora));
+                lista.innerHTML = "";
+                resposta.horarios.forEach(function (h, i) {
+                    var rotulo = document.createElement("label");
+                    rotulo.className = "ficha";
+                    var entrada = document.createElement("input");
+                    entrada.type = "radio";
+                    entrada.name = "hora";
+                    entrada.value = h.hora;
+                    entrada.required = true;
+                    var texto = document.createElement("span");
+                    texto.textContent = h.hora;
+                    rotulo.appendChild(entrada);
+                    rotulo.appendChild(texto);
+                    lista.appendChild(rotulo);
                 });
             })
-            .catch(function () {
-                hora.innerHTML = "";
-                hora.appendChild(opcao("", "Erro ao carregar"));
-            });
+            .catch(function () { aviso("Não foi possível carregar os horários. Verifique a internet e tente de novo."); });
     }
 
     function mostrarNovoCliente() {

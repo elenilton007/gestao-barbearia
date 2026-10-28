@@ -1,48 +1,55 @@
 {% extends "base.html" %}
 
+{% block titulo %}Unidades{% endblock %}
+
 {% block content %}
-<h2>🏠 Unidades</h2>
+<header class="cabecalho">
+    <div>
+        <h1>Unidades</h1>
+        <p>Cada unidade tem o próprio horário de funcionamento e a própria agenda.</p>
+    </div>
+</header>
 
-<div class="card">
-    <h3>Cadastrar Nova Unidade</h3>
-    <form method="POST" action="{{ url_for('nova_unidade') }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <label for="nome">Nome:</label>
-        <input type="text" id="nome" name="nome" placeholder="Centro, Shopping..." required>
+<div class="colunas-2">
+    <section class="painel">
+        <h2>Cadastrar unidade</h2>
+        <form method="POST" action="{{ url_for('nova_unidade') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="campo">
+                <label for="nome">Nome</label>
+                <input type="text" id="nome" name="nome" placeholder="Centro, Shopping" required>
+            </div>
+            <div class="campo">
+                <label for="endereco">Endereço</label>
+                <input type="text" id="endereco" name="endereco" autocomplete="street-address">
+            </div>
+            <button type="submit">Cadastrar unidade</button>
+        </form>
+    </section>
 
-        <label for="endereco">Endereço:</label>
-        <input type="text" id="endereco" name="endereco">
-
-        <button type="submit">Cadastrar</button>
-    </form>
-</div>
-
-<div class="card">
-    <h3>Lista de Unidades</h3>
-    <p class="dica">Unidade desativada some da agenda; os agendamentos antigos
-        continuam no histórico. Em <a href="{{ url_for('barbeiros') }}">Barbeiros</a>
-        você escolhe em qual unidade cada um atende.</p>
-    <table>
-        <thead>
-            <tr><th>Nome</th><th>Endereço</th><th>Situação</th><th></th></tr>
-        </thead>
-        <tbody>
-            {% for unidade in unidades %}
-            <tr class="{{ '' if unidade.ativo else 'inativo' }}">
-                <td>{{ unidade.nome }}</td>
-                <td>{{ unidade.endereco or '' }}</td>
-                <td>{{ "Ativa" if unidade.ativo else "Desativada" }}</td>
-                <td>
-                    <div class="acoes">
-                    <a href="{{ url_for('editar_unidade', unidade_id=unidade.id) }}">Editar e horários</a>
-                    {% with registro=unidade, rota=url_for('ativar_unidade', unidade_id=unidade.id) %}
-                    {% include "_ativo.html" %}
-                    {% endwith %}
-                    </div>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <section class="painel">
+        <h2>Lista de unidades</h2>
+        <p class="dica" style="margin-bottom: 10px">Unidade desativada sai da agenda; os horários antigos continuam no histórico. Em <a href="{{ url_for('barbeiros') }}">Barbeiros</a> você escolhe onde cada um atende.</p>
+        <div class="tabela-rolagem">
+            <table>
+                <thead><tr><th>Nome</th><th>Endereço</th><th>Situação</th><th></th></tr></thead>
+                <tbody>
+                    {% for unidade in unidades %}
+                    <tr class="{{ '' if unidade.ativo else 'inativo' }}">
+                        <td>{{ unidade.nome }}</td>
+                        <td>{{ unidade.endereco or '' }}</td>
+                        <td><span class="selo {{ '' if unidade.ativo else 'desligado' }}">{{ "Ativa" if unidade.ativo else "Desativada" }}</span></td>
+                        <td>
+                            <div class="acoes">
+                                <a href="{{ url_for('editar_unidade', unidade_id=unidade.id) }}">Editar e horários</a>
+                                {% with registro=unidade, rota=url_for('ativar_unidade', unidade_id=unidade.id) %}{% include "_ativo.html" %}{% endwith %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
 </div>
 {% endblock %}

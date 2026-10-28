@@ -1,74 +1,103 @@
 {% extends "base.html" %}
 
+{% block titulo %}Atendimentos{% endblock %}
+
 {% block content %}
-<h2>✂️ Atendimentos</h2>
+<header class="cabecalho">
+    <div>
+        <h1>Atendimentos</h1>
+        <p>Atendimentos concluídos pela agenda entram aqui sozinhos. Use o formulário só para quem foi atendido sem horário marcado.</p>
+    </div>
+</header>
 
-<div class="card">
-    <h3>Registrar Novo Atendimento</h3>
-    <form method="POST" action="{{ url_for('novo_atendimento') }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <label for="cliente_id">Cliente:</label>
-        <select id="cliente_id" name="cliente_id" required>
-            {% for cliente in clientes %}
-            <option value="{{ cliente.id }}">{{ cliente.nome }}</option>
-            {% endfor %}
-        </select>
+<div class="colunas-2">
+    <section class="painel">
+        <h2>Registrar atendimento sem horário</h2>
+        <form method="POST" action="{{ url_for('novo_atendimento') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="campo">
+                <label for="cliente_id">Cliente</label>
+                <select id="cliente_id" name="cliente_id" required>
+                    {% for cliente in clientes %}
+                    <option value="{{ cliente.id }}">{{ cliente.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="campo">
+                <label for="barbeiro_id">Barbeiro</label>
+                <select id="barbeiro_id" name="barbeiro_id" required>
+                    {% for barbeiro in barbeiros %}
+                    <option value="{{ barbeiro.id }}">{{ barbeiro.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="campo">
+                <label for="servico_id">Serviço</label>
+                <select id="servico_id" name="servico_id" required>
+                    {% for servico in servicos %}
+                    <option value="{{ servico.id }}" data-preco="{{ '%.2f'|format(servico.preco) }}">{{ servico.nome }}, {{ servico.preco|brl }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="grade-campos">
+                <div class="campo">
+                    <label for="valor_cobrado">Valor cobrado (R$)</label>
+                    <input type="number" step="0.01" min="0" id="valor_cobrado" name="valor_cobrado" inputmode="decimal" required>
+                </div>
+                <div class="campo">
+                    <label for="forma_pagamento">Pagamento</label>
+                    <select id="forma_pagamento" name="forma_pagamento">
+                        {% for forma, nome in NOMES_PAGAMENTO.items() %}
+                        <option value="{{ forma }}">{{ nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <button type="submit">Registrar atendimento</button>
+        </form>
+    </section>
 
-        <label for="barbeiro_id">Barbeiro:</label>
-        <select id="barbeiro_id" name="barbeiro_id" required>
-            {% for barbeiro in barbeiros %}
-            <option value="{{ barbeiro.id }}">{{ barbeiro.nome }}</option>
-            {% endfor %}
-        </select>
-
-        <label for="servico_id">Serviço:</label>
-        <select id="servico_id" name="servico_id" required>
-            {% for servico in servicos %}
-            <option value="{{ servico.id }}">{{ servico.nome }} - R$ {{ "%.2f"|format(servico.preco) }}</option>
-            {% endfor %}
-        </select>
-
-        <label for="valor_cobrado">Valor Cobrado:</label>
-        <input type="number" step="0.01" id="valor_cobrado" name="valor_cobrado" required>
-
-        <label for="forma_pagamento">Forma de Pagamento:</label>
-        <select id="forma_pagamento" name="forma_pagamento">
-            <option value="dinheiro">Dinheiro</option>
-            <option value="cartao">Cartão</option>
-            <option value="pix">Pix</option>
-        </select>
-
-        <button type="submit">Registrar</button>
-    </form>
+    <section class="painel">
+        <h2>Histórico de Atendimentos</h2>
+        <div class="tabela-rolagem">
+            <table>
+                <thead>
+                    <tr><th>Quando</th><th>Cliente</th><th>Barbeiro</th><th>Serviço</th><th class="numero">Valor</th><th>Pagamento</th><th class="numero">Comissão</th></tr>
+                </thead>
+                <tbody>
+                    {% for atendimento in atendimentos %}
+                    <tr>
+                        <td style="white-space: nowrap">{{ atendimento.data_hora|data_br }}</td>
+                        <td>{{ atendimento.cliente }}</td>
+                        <td>{{ atendimento.barbeiro }}</td>
+                        <td>{{ atendimento.servico }}</td>
+                        <td class="numero">{{ atendimento.valor_cobrado|brl }}</td>
+                        <td>{{ NOMES_PAGAMENTO.get(atendimento.forma_pagamento, atendimento.forma_pagamento) }}</td>
+                        <td class="numero">{{ (atendimento.valor_cobrado * atendimento.comissao_percentual / 100)|brl }}<br><span class="dica">{{ atendimento.comissao_percentual|percentual }}</span></td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="7" class="vazio">Nenhum atendimento registrado.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
 </div>
 
-<div class="card">
-    <h3>Histórico de Atendimentos</h3>
-    <table>
-        <thead>
-            <tr>
-                <th>Cliente</th>
-                <th>Barbeiro</th>
-                <th>Serviço</th>
-                <th>Data/Hora</th>
-                <th>Valor</th>
-                <th>Pagamento</th>
-                <th>Comissão</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for atendimento in atendimentos %}
-            <tr>
-                <td>{{ atendimento.cliente }}</td>
-                <td>{{ atendimento.barbeiro }}</td>
-                <td>{{ atendimento.servico }}</td>
-                <td>{{ atendimento.data_hora }}</td>
-                <td>R$ {{ "%.2f"|format(atendimento.valor_cobrado) }}</td>
-                <td>{{ atendimento.forma_pagamento }}</td>
-                <td>{{ atendimento.comissao_percentual }}% (R$ {{ "%.2f"|format(atendimento.valor_cobrado * atendimento.comissao_percentual / 100) }})</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+<script>
+// O valor cobrado começa com o preço do serviço escolhido (dá para mudar).
+(function () {
+    var servico = document.getElementById("servico_id");
+    var valor = document.getElementById("valor_cobrado");
+    if (!servico || !valor) { return; }
+    var mexido = false;
+    valor.addEventListener("input", function () { mexido = true; });
+    function preencher() {
+        var opcao = servico.options[servico.selectedIndex];
+        if (opcao && !mexido) { valor.value = opcao.getAttribute("data-preco"); }
+    }
+    servico.addEventListener("change", function () { mexido = false; preencher(); });
+    preencher();
+})();
+</script>
 {% endblock %}

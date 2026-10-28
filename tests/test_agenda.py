@@ -359,6 +359,11 @@ def test_agenda_de_uma_barbearia_nao_aparece_na_outra(outra_barbearia):
 
 # ---------- TELAS ----------
 
+def _quadro(html):
+    """Só a agenda do dia (sem o formulário, que lista todos os clientes)."""
+    return html.split('aria-label="Agenda do dia por barbeiro"')[1].split("Caixa do dia")[0]
+
+
 def _post(client, rota, dados):
     return client.post(rota, data=dados, follow_redirects=True)
 
@@ -367,7 +372,7 @@ def test_dono_ve_a_agenda_do_dia(client):
     _marcar("10:00", servicos=[CORTE, BARBA])
     html = client.get(f"/agenda?data={SEGUNDA}").get_data(as_text=True)
     assert "Novo agendamento" in html
-    assert "Carlos Souza" in html and "Corte Masculino + Barba" in html
+    assert "Carlos Souza" in html and "Corte Masculino, Barba" in html
     assert "Elenilton Silveira" in html and "João Pereira" in html
     assert "Sem preferência" in html
 
@@ -453,8 +458,7 @@ def test_barbeiro_ve_so_a_propria_agenda(client_barbeiro):
     _marcar("11:00", barbeiro=JOAO, cliente=BRUNO)
     html = client_barbeiro.get(f"/agenda?data={SEGUNDA}").get_data(as_text=True)
     assert "Sem preferência" not in html
-    lista = html.split("Marcar horário")[1]  # depois do formulário (que lista os clientes)
-    assert "Bruno Andrade" in lista and "Rafael Lima" not in lista
+    assert "Bruno Andrade" in _quadro(html) and "Rafael Lima" not in _quadro(html)
 
 
 def test_barbeiro_marca_sempre_para_si(client_barbeiro):
@@ -524,4 +528,4 @@ def test_dono_escolhe_a_unidade_do_barbeiro(client):
     })
     assert models.buscar_barbeiro(BARBEARIA, JOAO)["unidade_id"] == shopping
     html = client.get(f"/agenda?data={SEGUNDA}&unidade=1").get_data(as_text=True)
-    assert "João Pereira" not in html.split("Bloqueios")[0]
+    assert "João Pereira" not in _quadro(html)

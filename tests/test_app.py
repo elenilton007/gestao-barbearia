@@ -21,8 +21,8 @@ def test_paginas_carregam(client, rota):
 def test_dashboard_mostra_faturamento(client):
     models.criar_atendimento(BARBEARIA, 1, 1, 1, 35.00)
     html = client.get("/").get_data(as_text=True)
-    assert "R$ 35.00" in html
-    assert "R$ 17.50" in html  # comissão de 50%
+    assert "R$ 35,00" in html
+    assert "R$ 17,50" in html  # comissão de 50%
 
 
 def test_cadastrar_cliente_pelo_formulario(client):

@@ -1,35 +1,41 @@
 {% extends "base.html" %}
 
-{% block content %}
-<h2>🔑 Editar Usuário</h2>
+{% block titulo %}{{ usuario.usuario }}{% endblock %}
 
-<div class="card">
-    <h3>{{ usuario.usuario }}</h3>
+{% block content %}
+<div class="conteudo-estreito">
+<a class="voltar" href="{{ url_for('usuarios') }}">Voltar para Usuários</a>
+<header class="cabecalho"><h1>{{ usuario.usuario }}</h1></header>
+
+<section class="painel">
     <form method="POST" action="{{ url_for('editar_usuario', usuario_id=usuario.id) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <label for="papel">Papel:</label>
-        <select id="papel" name="papel">
-            {% for papel in papeis %}
-            <option value="{{ papel }}" {{ "selected" if papel == usuario.papel }}>{{ papel }}</option>
-            {% endfor %}
-        </select>
-
-        <label for="barbeiro_id">Barbeiro vinculado (só para o papel barbeiro):</label>
-        <select id="barbeiro_id" name="barbeiro_id">
-            <option value="">—</option>
-            {% for barbeiro in barbeiros %}
-            <option value="{{ barbeiro.id }}" {{ "selected" if barbeiro.id == usuario.barbeiro_id }}>
-                {{ barbeiro.nome }}{{ "" if barbeiro.ativo else " (desativado)" }}
-            </option>
-            {% endfor %}
-        </select>
-
-        <label for="nova_senha">Nova senha (deixe em branco para manter a atual):</label>
-        <input type="password" id="nova_senha" name="nova_senha" minlength="8"
-               autocomplete="new-password">
-
-        <button type="submit">Salvar</button>
+        <div class="grade-campos">
+            <div class="campo">
+                <label for="papel">Papel</label>
+                <select id="papel" name="papel">
+                    {% for papel in papeis %}
+                    <option value="{{ papel }}" {{ "selected" if papel == usuario.papel }}>{{ papel }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="campo">
+                <label for="barbeiro_id">Barbeiro vinculado</label>
+                <select id="barbeiro_id" name="barbeiro_id">
+                    <option value="">Nenhum</option>
+                    {% for barbeiro in barbeiros %}
+                    <option value="{{ barbeiro.id }}" {{ "selected" if barbeiro.id == usuario.barbeiro_id }}>{{ barbeiro.nome }}{{ "" if barbeiro.ativo else " (desativado)" }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="campo">
+            <label for="nova_senha">Nova senha</label>
+            <input type="password" id="nova_senha" name="nova_senha" minlength="8" autocomplete="new-password">
+            <p class="dica">Deixe em branco para manter a senha atual.</p>
+        </div>
+        <button type="submit">Salvar alterações</button>
     </form>
-    <p><a href="{{ url_for('usuarios') }}">Voltar</a></p>
+</section>
 </div>
 {% endblock %}

@@ -3,9 +3,9 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {% if registro.ativo %}
     <input type="hidden" name="ativo" value="0">
-    <button type="submit">Desativar</button>
+    <button type="submit" class="secundario pequeno">Desativar</button>
     {% else %}
     <input type="hidden" name="ativo" value="1">
-    <button type="submit">Reativar</button>
+    <button type="submit" class="secundario pequeno">Reativar</button>
     {% endif %}
 </form>

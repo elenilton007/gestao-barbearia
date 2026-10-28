@@ -18,7 +18,7 @@ from conftest import BARBEARIA, BARBEIRO_JOAO, ID_DONO, ID_USUARIO_JOAO, logar
 from database import get_connection
 
 DADOS_DA_EXEMPLO = ["Carlos Souza", "Elenilton Silveira", "João Pereira", "Corte Masculino"]
-DADOS_DA_OURO = ["Diego Ramos", "Marcos Tesoura", "Pigmentação", "123.45"]
+DADOS_DA_OURO = ["Diego Ramos", "Marcos Tesoura", "Pigmentação", "123,45"]
 
 
 def _html(client, rota):
@@ -126,7 +126,7 @@ def test_dono_da_outra_barbearia_nao_ve_dados_da_primeira(
     html = _html(client_anonimo, rota)
     for dado in DADOS_DA_EXEMPLO:
         assert dado not in html
-    assert "R$ 35.00" not in html
+    assert "R$ 35,00" not in html
 
 
 def test_dono_da_outra_barbearia_ve_os_proprios_dados(client_anonimo, outra_barbearia):
@@ -134,7 +134,7 @@ def test_dono_da_outra_barbearia_ve_os_proprios_dados(client_anonimo, outra_barb
     html = _html(client_anonimo, "/")
     assert "Navalha de Ouro" in html  # nome da barbearia no menu
     assert "Marcos Tesoura" in html
-    assert "R$ 123.45" in html
+    assert "R$ 123,45" in html
     assert "Diego Ramos" in _html(client_anonimo, "/clientes")
 
 
@@ -276,7 +276,7 @@ def test_dono_do_banco_antigo_entra_e_ve_os_dados(client_anonimo, banco_antigo):
     database.atualizar_banco()
     client_anonimo.post("/login", data={"usuario": "antigo", "senha": "senha-antiga"})
     assert "Cliente Antigo" in _html(client_anonimo, "/clientes")
-    assert "R$ 30.00" in _html(client_anonimo, "/relatorios")
+    assert "R$ 30,00" in _html(client_anonimo, "/relatorios")
 
 
 def test_atualizar_banco_novo_nao_muda_nada():

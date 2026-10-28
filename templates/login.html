@@ -1,18 +1,37 @@
 {% extends "base.html" %}
 
-{% block content %}
-<h2>🔐 Entrar</h2>
+{% block titulo %}Entrar{% endblock %}
 
-<div class="card">
-    <form method="POST" action="{{ url_for('login') }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <label for="usuario">Usuário:</label>
-        <input type="text" id="usuario" name="usuario" autocomplete="username" required autofocus>
+{% block corpo %}
+<div class="tela-entrada">
+    <section class="entrada-marca">
+        <span class="marca">MeuBarber</span>
+        <div>
+            <p class="entrada-frase">A agenda e o caixa da barbearia no mesmo lugar.</p>
+        </div>
+        <p>Horários de cada barbeiro, comissões e o que entrou no dia, do balcão ou do celular.</p>
+    </section>
 
-        <label for="senha">Senha:</label>
-        <input type="password" id="senha" name="senha" autocomplete="current-password" required>
-
-        <button type="submit">Entrar</button>
-    </form>
+    <section class="entrada-form">
+        <div>
+            <h1>Entrar</h1>
+            <p class="dica">Use o usuário e a senha que o dono da barbearia criou para você.</p>
+            {% for categoria, mensagem in get_flashed_messages(with_categories=true) %}
+            <p class="alerta {{ 'sucesso' if categoria == 'ok' else '' }}" role="alert">{{ mensagem }}</p>
+            {% endfor %}
+            <form method="POST" action="{{ url_for('login') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="campo">
+                    <label for="usuario">Usuário</label>
+                    <input type="text" id="usuario" name="usuario" autocomplete="username" autocapitalize="none" required autofocus>
+                </div>
+                <div class="campo">
+                    <label for="senha">Senha</label>
+                    <input type="password" id="senha" name="senha" autocomplete="current-password" required>
+                </div>
+                <button type="submit">Entrar</button>
+            </form>
+        </div>
+    </section>
 </div>
 {% endblock %}

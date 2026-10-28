@@ -1,60 +1,64 @@
 {% extends "base.html" %}
 
+{% block titulo %}Serviços{% endblock %}
+
 {% block content %}
-<h2>✂️ Serviços</h2>
+<header class="cabecalho">
+    <div>
+        <h1>Serviços</h1>
+        <p>O preço e a duração definem o valor combinado e o tempo reservado na agenda.</p>
+    </div>
+</header>
 
-<div class="card">
-    <h3>Cadastrar Novo Serviço</h3>
-    <form method="POST" action="{{ url_for('novo_servico') }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <label for="nome">Nome:</label>
-        <input type="text" id="nome" name="nome" required>
+<div class="colunas-2">
+    <section class="painel">
+        <h2>Cadastrar serviço</h2>
+        <form method="POST" action="{{ url_for('novo_servico') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="campo">
+                <label for="nome">Nome</label>
+                <input type="text" id="nome" name="nome" placeholder="Corte, barba, pigmentação" required>
+            </div>
+            <div class="grade-campos">
+                <div class="campo">
+                    <label for="preco">Preço (R$)</label>
+                    <input type="number" step="0.01" min="0" id="preco" name="preco" inputmode="decimal" required>
+                </div>
+                <div class="campo">
+                    <label for="duracao_minutos">Duração (min)</label>
+                    <input type="number" step="1" min="1" id="duracao_minutos" name="duracao_minutos" value="30" inputmode="numeric" required>
+                </div>
+            </div>
+            <button type="submit">Cadastrar serviço</button>
+        </form>
+    </section>
 
-        <label for="preco">Preço (R$):</label>
-        <input type="number" step="0.01" min="0" id="preco" name="preco" required>
-
-        <label for="duracao_minutos">Duração (minutos):</label>
-        <input type="number" step="1" min="1" id="duracao_minutos"
-               name="duracao_minutos" value="30" required>
-
-        <button type="submit">Cadastrar</button>
-    </form>
-</div>
-
-<div class="card">
-    <h3>Lista de Serviços</h3>
-    <p class="dica">Serviço desativado não aparece no registro de atendimentos,
-        mas continua no histórico e nos relatórios.</p>
-    <table>
-        <thead>
-            <tr>
-                <th>Nome</th>
-                <th>Preço</th>
-                <th>Duração</th>
-                <th>Situação</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for servico in servicos %}
-            <tr class="{{ '' if servico.ativo else 'inativo' }}">
-                <td>{{ servico.nome }}</td>
-                <td>R$ {{ "%.2f"|format(servico.preco) }}</td>
-                <td>{{ servico.duracao_minutos }} min</td>
-                <td>{{ "Ativo" if servico.ativo else "Desativado" }}</td>
-                <td>
-                    <div class="acoes">
-                    <a href="{{ url_for('editar_servico', servico_id=servico.id) }}">Editar</a>
-                    {% with registro=servico, rota=url_for('ativar_servico', servico_id=servico.id) %}
-                    {% include "_ativo.html" %}
-                    {% endwith %}
-                    </div>
-                </td>
-            </tr>
-            {% else %}
-            <tr><td colspan="5">Nenhum serviço cadastrado.</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <section class="painel">
+        <h2>Lista de serviços</h2>
+        <p class="dica" style="margin-bottom: 10px">Serviço desativado sai da agenda e dos formulários, mas continua no histórico e nos relatórios.</p>
+        <div class="tabela-rolagem">
+            <table>
+                <thead><tr><th>Nome</th><th class="numero">Preço</th><th class="numero">Duração</th><th>Situação</th><th></th></tr></thead>
+                <tbody>
+                    {% for servico in servicos %}
+                    <tr class="{{ '' if servico.ativo else 'inativo' }}">
+                        <td>{{ servico.nome }}</td>
+                        <td class="numero">{{ servico.preco|brl }}</td>
+                        <td class="numero">{{ servico.duracao_minutos }} min</td>
+                        <td><span class="selo {{ '' if servico.ativo else 'desligado' }}">{{ "Ativo" if servico.ativo else "Desativado" }}</span></td>
+                        <td>
+                            <div class="acoes">
+                                <a href="{{ url_for('editar_servico', servico_id=servico.id) }}">Editar</a>
+                                {% with registro=servico, rota=url_for('ativar_servico', servico_id=servico.id) %}{% include "_ativo.html" %}{% endwith %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="vazio">Nenhum serviço cadastrado.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
 </div>
 {% endblock %}

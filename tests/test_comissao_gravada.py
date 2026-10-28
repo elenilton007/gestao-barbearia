@@ -99,7 +99,7 @@ def test_tela_de_atendimentos_mostra_a_comissao_gravada(client):
     _mudar_comissao(BARBEIRO_JOAO, 60.0)
 
     html = client.get("/atendimentos").get_data(as_text=True)
-    assert "40.0% (R$ 40.00)" in html
+    assert "R$ 40,00" in html and "40%" in html
 
 
 def test_relatorio_usa_a_comissao_gravada(client):
@@ -107,8 +107,8 @@ def test_relatorio_usa_a_comissao_gravada(client):
     _mudar_comissao(BARBEIRO_JOAO, 60.0)
 
     html = client.get("/relatorios").get_data(as_text=True)
-    assert "R$ 40.00" in html
-    assert "R$ 60.00" not in html
+    assert "R$ 40,00" in html
+    assert "R$ 60,00" not in html
 
 
 # ---------- BANCO ANTIGO ----------

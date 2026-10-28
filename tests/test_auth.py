@@ -59,7 +59,7 @@ def test_login_com_senha_correta(client_anonimo):
         "/login", data={"usuario": "dono", "senha": "senha-do-dono"}
     )
     assert resposta.status_code == 302
-    assert resposta.headers["Location"].endswith("/")
+    assert resposta.headers["Location"].endswith("/agenda")
     assert client_anonimo.get("/").status_code == 200
 
 
@@ -77,7 +77,7 @@ def test_login_invalido_e_recusado(client_anonimo, usuario, senha):
 def test_logado_em_login_vai_para_dashboard(client):
     resposta = client.get("/login")
     assert resposta.status_code == 302
-    assert resposta.headers["Location"].endswith("/")
+    assert resposta.headers["Location"].endswith("/agenda")
 
 
 def test_logout_encerra_a_sessao(client):
@@ -108,7 +108,7 @@ def test_dono_ve_comissoes_de_todos(client):
     html = client.get("/").get_data(as_text=True)
     assert "Elenilton Silveira" in html
     assert "João Pereira" in html
-    assert "R$ 90.00" in html  # faturamento total
+    assert "R$ 90,00" in html  # faturamento total
     assert "Serviços Mais Vendidos" in html
     assert "Relatórios" in html
 
@@ -137,11 +137,11 @@ def test_barbeiro_ve_so_a_propria_comissao(client_barbeiro):
     html = client_barbeiro.get("/").get_data(as_text=True)
     assert "Minhas Comissões" in html
     assert "João Pereira" in html
-    assert "R$ 14.00" in html
+    assert "R$ 14,00" in html
     assert "Elenilton Silveira" not in html
-    assert "R$ 27.50" not in html
+    assert "R$ 27,50" not in html
     assert "Faturamento Total" not in html
-    assert "R$ 90.00" not in html
+    assert "R$ 90,00" not in html
     assert "Serviços Mais Vendidos" not in html
 
 

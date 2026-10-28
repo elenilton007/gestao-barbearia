@@ -1,41 +1,50 @@
 {% extends "base.html" %}
 
+{% block titulo %}Clientes{% endblock %}
+
 {% block content %}
-<h2>👤 Clientes</h2>
+<header class="cabecalho">
+    <div>
+        <h1>Clientes</h1>
+        <p>{{ clientes|length }} cliente{{ 's' if clientes|length != 1 }} cadastrado{{ 's' if clientes|length != 1 }}.</p>
+    </div>
+</header>
 
-<div class="card">
-    <h3>Cadastrar Novo Cliente</h3>
-    <form method="POST" action="{{ url_for('novo_cliente') }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <label for="nome">Nome:</label>
-        <input type="text" id="nome" name="nome" required>
+<div class="colunas-2">
+    <section class="painel">
+        <h2>Cadastrar cliente</h2>
+        <form method="POST" action="{{ url_for('novo_cliente') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="campo">
+                <label for="nome">Nome</label>
+                <input type="text" id="nome" name="nome" autocomplete="off" required>
+            </div>
+            <div class="campo">
+                <label for="telefone">WhatsApp</label>
+                <input type="tel" id="telefone" name="telefone" placeholder="(71) 90000-0000" autocomplete="off">
+            </div>
+            <button type="submit">Cadastrar cliente</button>
+        </form>
+    </section>
 
-        <label for="telefone">Telefone:</label>
-        <input type="text" id="telefone" name="telefone">
-
-        <button type="submit">Cadastrar</button>
-    </form>
-</div>
-
-<div class="card">
-    <h3>Lista de Clientes</h3>
-    <table>
-        <thead>
-            <tr>
-                <th>Nome</th>
-                <th>Telefone</th>
-                <th>Cadastrado em</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for cliente in clientes %}
-            <tr>
-                <td>{{ cliente.nome }}</td>
-                <td>{{ cliente.telefone or "-" }}</td>
-                <td>{{ cliente.criado_em }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <section class="painel">
+        <h2>Lista de clientes</h2>
+        <div class="tabela-rolagem">
+            <table>
+                <thead><tr><th>Nome</th><th>WhatsApp</th><th>Cliente desde</th></tr></thead>
+                <tbody>
+                    {% for cliente in clientes %}
+                    <tr>
+                        <td>{{ cliente.nome }}</td>
+                        <td>{{ cliente.telefone or "" }}</td>
+                        <td>{{ cliente.criado_em|data_br|truncate(10, True, '') }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="3" class="vazio">Nenhum cliente ainda. Cadastre ao lado ou na hora de marcar um horário.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
 </div>
 {% endblock %}

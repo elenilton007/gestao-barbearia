@@ -3,42 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>MeuBarber — gestão e agendamento para barbearias</title>
+    <meta name="theme-color" content="#103B31">
+    <title>{% block titulo %}{% endblock %}{% if self.titulo() %} | {% endif %}MeuBarber — gestão e agendamento para barbearias</title>
+    <link rel="preload" href="{{ url_for('static', filename='fontes/gloock-latin-400-normal.woff2') }}" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="{{ url_for('static', filename='fontes/figtree-latin-400-normal.woff2') }}" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <nav class="navbar">
-        <h1>💈 MeuBarber</h1>
+{% block corpo %}
+{% set pagina = request.endpoint or '' %}
+{% macro item(endpoint, texto, tambem=()) -%}
+<li><a href="{{ url_for(endpoint) }}"{% if request.endpoint == endpoint or request.endpoint in tambem %} aria-current="page"{% endif %}>{{ texto }}</a></li>
+{%- endmacro %}
+<div class="app">
+    <aside class="lateral">
+        <a class="marca" href="{{ url_for('agenda_dia') if g.usuario else url_for('login') }}">MeuBarber</a>
         {% if g.usuario %}
-        <ul>
-            <li><a href="{{ url_for('agenda_dia') }}">Agenda</a></li>
-            <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
-            <li><a href="{{ url_for('clientes') }}">Clientes</a></li>
-            <li><a href="{{ url_for('atendimentos') }}">Atendimentos</a></li>
+        <input type="checkbox" id="menu-alternar" class="menu-alternar" aria-label="Abrir o menu">
+        <label for="menu-alternar" class="menu-botao">Menu</label>
+        <ul class="menu">
+            {{ item('agenda_dia', 'Agenda') }}
+            {{ item('clientes', 'Clientes') }}
+            {{ item('atendimentos', 'Atendimentos') }}
+            {{ item('dashboard', 'Painel' if g.usuario.papel == 'dono' else 'Minhas comissões') }}
             {% if g.usuario.papel == "dono" %}
-            <li><a href="{{ url_for('relatorios') }}">Relatórios</a></li>
-            <li><a href="{{ url_for('unidades') }}">Unidades</a></li>
-            <li><a href="{{ url_for('barbeiros') }}">Barbeiros</a></li>
-            <li><a href="{{ url_for('servicos') }}">Serviços</a></li>
-            <li><a href="{{ url_for('usuarios') }}">Usuários</a></li>
+            {{ item('relatorios', 'Relatórios') }}
+        </ul>
+        <p class="menu-grupo">Cadastros</p>
+        <ul class="menu">
+            {{ item('barbeiros', 'Barbeiros', ('editar_barbeiro',)) }}
+            {{ item('servicos', 'Serviços', ('editar_servico',)) }}
+            {{ item('unidades', 'Unidades', ('editar_unidade',)) }}
+            {{ item('usuarios', 'Usuários', ('editar_usuario',)) }}
             {% endif %}
-            <li><a href="{{ url_for('trocar_senha') }}">Trocar senha</a></li>
-            <li class="usuario-logado">
-                {{ g.barbearia.nome }} · {{ g.usuario.usuario }} ({{ g.usuario.papel }})
-                <form method="POST" action="{{ url_for('logout') }}" class="form-sair">
+        </ul>
+        <div class="conta">
+            <strong>{{ g.barbearia.nome }}</strong>
+            {{ g.usuario.usuario }} ({{ g.usuario.papel }})
+            <div class="conta-acoes">
+                <a href="{{ url_for('trocar_senha') }}"{% if pagina == 'trocar_senha' %} aria-current="page"{% endif %}>Trocar senha</a>
+                <form method="POST" action="{{ url_for('logout') }}" class="form-linha">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit">Sair</button>
                 </form>
-            </li>
-        </ul>
+            </div>
+        </div>
         {% endif %}
-    </nav>
+    </aside>
 
-    <main class="container">
+    <main class="principal">
         {% for categoria, mensagem in get_flashed_messages(with_categories=true) %}
-        <p class="alerta {{ 'sucesso' if categoria == 'ok' else '' }}">{{ mensagem }}</p>
+        <p class="alerta {{ 'sucesso' if categoria == 'ok' else '' }}" role="{{ 'status' if categoria == 'ok' else 'alert' }}">{{ mensagem }}</p>
         {% endfor %}
         {% block content %}{% endblock %}
     </main>
+</div>
+{% endblock %}
 </body>
 </html>

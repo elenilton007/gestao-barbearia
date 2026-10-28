@@ -19,7 +19,7 @@ import os
 import secrets
 import time
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from flask import (
     Flask,
@@ -65,6 +65,40 @@ app.config["TEMPO_INATIVIDADE"] = 60 * int(
 )
 
 csrf = CSRFProtect(app)
+
+NOMES_PAGAMENTO = {"dinheiro": "Dinheiro", "cartao": "Cartão", "pix": "Pix"}
+NOMES_STATUS = {"marcado": "Marcado", "concluido": "Concluído",
+                "faltou": "Faltou", "cancelado": "Cancelado"}
+
+
+@app.template_filter("brl")
+def formatar_reais(valor):
+    """1234.5 -> 'R$ 1.234,50' (formato brasileiro)."""
+    texto = f"{float(valor or 0):,.2f}".replace(",", "_").replace(".", ",").replace("_", ".")
+    return f"R$ {texto}"
+
+
+@app.template_filter("percentual")
+def formatar_percentual(valor):
+    """50.0 -> '50%'; 45.5 -> '45,5%'."""
+    numero = round(float(valor or 0), 2)
+    texto = f"{numero:.2f}".rstrip("0").rstrip(".").replace(".", ",")
+    return f"{texto}%"
+
+
+@app.template_filter("data_br")
+def formatar_data(texto):
+    """'2030-01-07 10:00:00' -> '07/01/2030 10:00'; só a data se não tiver hora."""
+    texto = str(texto or "")
+    if len(texto) < 10:
+        return texto
+    data = f"{texto[8:10]}/{texto[5:7]}/{texto[:4]}"
+    return f"{data} {texto[11:16]}" if len(texto) >= 16 else data
+
+
+@app.context_processor
+def nomes_para_telas():
+    return {"NOMES_PAGAMENTO": NOMES_PAGAMENTO, "NOMES_STATUS": NOMES_STATUS}
 
 
 # ---------- AUTENTICAÇÃO ----------
@@ -156,9 +190,9 @@ def login():
             return render_template("login.html"), 401
         models.limpar_falhas_login(nome)
         _iniciar_sessao(usuario)
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("agenda_dia"))
     if g.usuario is not None:
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("agenda_dia"))
     return render_template("login.html")
 
 
@@ -565,12 +599,44 @@ def _voltar_para_agenda(agendamento=None):
     return redirect(url_for("agenda_dia"))
 
 
+def _minutos(momento, comeco):
+    return int((momento - comeco).total_seconds() // 60)
+
+
+def _faixa_do_quadro(dia, faixas, itens, bloqueios):
+    """
+    Começo e fim (datetime) do quadro do dia: o horário da unidade, aberto
+    para caber horários marcados fora dele. Sempre em horas cheias.
+    """
+    base = datetime.combine(dia, datetime.min.time())
+    momentos = []
+    for abre, fecha in faixas:
+        momentos += [base + timedelta(hours=int(abre[:2]), minutes=int(abre[3:])),
+                     base + timedelta(hours=int(fecha[:2]), minutes=int(fecha[3:]))]
+    for item in itens:
+        momentos += [agenda.ler_momento(item["inicio"]), agenda.ler_momento(item["fim"])]
+    for bloqueio in bloqueios:
+        if faixas or itens:  # bloqueio sozinho não abre o quadro de madrugada
+            momentos += [bloqueio["inicio"], bloqueio["fim"]]
+    if not momentos:
+        return base + timedelta(hours=9), base + timedelta(hours=19)
+    comeco = min(momentos).replace(minute=0)
+    final = max(momentos)
+    if final.minute:
+        final = final.replace(minute=0) + timedelta(hours=1)
+    final = min(final, base + timedelta(days=1))
+    if final <= comeco:
+        final = comeco + timedelta(hours=1)
+    return comeco, final
+
+
 @app.route("/agenda")
 @login_obrigatorio
 def agenda_dia():
     barbearia_id = barbearia_logada()
     barbeiro_id = barbeiro_logado()
     dia = _dia_da_agenda()
+    hoje = agenda.hoje()
     unidades = agenda.listar_unidades(barbearia_id, somente_ativas=True)
     unidade = _unidade_da_agenda(unidades)
     unidade_id = unidade["id"] if unidade else None
@@ -579,42 +645,103 @@ def agenda_dia():
         barbeiros = [models.buscar_barbeiro(barbearia_id, barbeiro_id)]
     else:
         barbeiros = agenda.barbeiros_da_unidade(barbearia_id, unidade_id) if unidade else []
-    agendamentos = (
-        agenda.listar_agenda(barbearia_id, dia, unidade_id, barbeiro_id) if unidade else []
+    itens = agenda.listar_agenda(barbearia_id, dia, unidade_id, barbeiro_id) if unidade else []
+    # Quem tem horário no dia aparece, mesmo desativado ou de outra unidade.
+    colunas = {b["id"]: {"id": b["id"], "nome": b["nome"], "itens": [], "bloqueios": []}
+               for b in barbeiros}
+    for item in itens:
+        colunas.setdefault(item["barbeiro_id"], {
+            "id": item["barbeiro_id"], "nome": item["barbeiro"], "itens": [], "bloqueios": [],
+        })["itens"].append(item)
+    bloqueios = [b for b in agenda.bloqueios_do_dia(barbearia_id, dia, barbeiro_id)
+                 if b["barbeiro_id"] in colunas]
+    for bloqueio in bloqueios:
+        colunas[bloqueio["barbeiro_id"]]["bloqueios"].append(bloqueio)
+
+    horarios = agenda.horarios_da_unidade(barbearia_id, unidade_id) if unidade else {}
+    faixas = horarios.get(dia.weekday(), [])
+    comeco, final = _faixa_do_quadro(dia, faixas, itens, bloqueios)
+    minutos_abertos = sum(
+        (int(f[:2]) * 60 + int(f[3:])) - (int(a[:2]) * 60 + int(a[3:])) for a, f in faixas
     )
-    por_barbeiro = {b["id"]: [] for b in barbeiros}
-    for item in agendamentos:
-        por_barbeiro.setdefault(item["barbeiro_id"], []).append(item)
-    nomes = {b["id"]: b["nome"] for b in barbeiros}
-    for item in agendamentos:
-        nomes.setdefault(item["barbeiro_id"], item["barbeiro"])
+    for coluna in colunas.values():
+        ocupado = 0
+        for item in coluna["itens"]:
+            inicio, fim = agenda.ler_momento(item["inicio"]), agenda.ler_momento(item["fim"])
+            item["ini"], item["dur"] = _minutos(inicio, comeco), _minutos(fim, inicio)
+            if item["status"] in ("marcado", "concluido"):
+                ocupado += item["dur"]
+        for bloqueio in coluna["bloqueios"]:
+            bloqueio["ini"] = _minutos(bloqueio["inicio"], comeco)
+            bloqueio["dur"] = _minutos(bloqueio["fim"], bloqueio["inicio"])
+            bloqueio["hora"] = bloqueio["inicio"].strftime("%H:%M")
+        coluna["ocupacao"] = round(100 * ocupado / minutos_abertos) if minutos_abertos else 0
+        coluna["iniciais"] = "".join(p[0] for p in coluna["nome"].split()[:2]).upper()
+
+    agora = agenda.agora()
+    linha_agora = None
+    if dia == hoje and comeco <= agora <= final:
+        linha_agora = {"ini": _minutos(agora, comeco), "hora": agora.strftime("%H:%M")}
+
+    def soma(status):
+        return sum(i["total"] for i in itens if i["status"] == status)
+
+    caixa = {"recebido": soma("concluido"), "a_receber": soma("marcado"), "perdido": soma("faltou")}
+    caixa["previsto"] = caixa["recebido"] + caixa["a_receber"]
+    escala = max(caixa["previsto"] + caixa["perdido"], 1)
+    caixa["partes"] = {chave: round(100 * caixa[chave] / escala, 1)
+                       for chave in ("recebido", "a_receber", "perdido")}
+    marcados = [i for i in itens if i["status"] == "marcado"]
+    if dia == hoje:
+        marcados = [i for i in marcados if agenda.ler_momento(i["fim"]) > agora]
+
+    segunda = dia - timedelta(days=dia.weekday())
+    contagem = (
+        agenda.contar_por_dia(barbearia_id, segunda, 7, unidade_id, barbeiro_id) if unidade else {}
+    )
+    semana = [
+        {"data": d, "curto": agenda.DIAS_CURTOS[d.weekday()], "total": contagem.get(d, 0),
+         "fechado": not horarios.get(d.weekday())}
+        for d in (segunda + timedelta(days=i) for i in range(7))
+    ]
 
     return render_template(
         "agenda.html",
         dia=dia,
-        hoje=agenda.hoje(),
-        anterior=dia - timedelta(days=1),
-        seguinte=dia + timedelta(days=1),
-        dia_da_semana=agenda.DIAS_DA_SEMANA[dia.weekday()],
+        hoje=hoje,
+        titulo_dia=(
+            f"{agenda.DIAS_DA_SEMANA[dia.weekday()]}, {dia.day} de {agenda.MESES[dia.month - 1]}"
+            + ("" if dia.year == hoje.year else f" de {dia.year}")
+        ),
+        semana=semana,
+        semana_anterior=segunda - timedelta(days=7),
+        semana_seguinte=segunda + timedelta(days=7),
         unidades=unidades,
         unidade=unidade,
-        barbeiros=barbeiros,
-        por_barbeiro=por_barbeiro,
-        nomes=nomes,
-        marcados=sum(1 for a in agendamentos if a["status"] == "marcado"),
-        previsto=sum(a["total"] for a in agendamentos if a["status"] in ("marcado", "concluido")),
+        faixas=faixas,
+        colunas=list(colunas.values()),
+        itens=itens,
+        comeco=comeco,
+        minutos_quadro=_minutos(final, comeco),
+        horas_quadro=[
+            {"ini": _minutos(comeco + timedelta(hours=h), comeco),
+             "texto": f"{(comeco + timedelta(hours=h)).hour}h"}
+            for h in range(_minutos(final, comeco) // 60 + 1)
+        ],
+        linha_agora=linha_agora,
+        caixa=caixa,
+        a_seguir=marcados[:3],
+        faltas=sum(1 for i in itens if i["status"] == "faltou"),
+        cancelados=sum(1 for i in itens if i["status"] == "cancelado"),
         clientes=models.listar_clientes(barbearia_id),
         servicos=models.listar_servicos(barbearia_id, somente_ativos=True),
-        bloqueios=agenda.listar_bloqueios(barbearia_id, agenda.agora(), barbeiro_id),
+        barbeiros=barbeiros,
+        bloqueios=agenda.listar_bloqueios(barbearia_id, agora, barbeiro_id),
         todos_barbeiros=(
             barbeiros if barbeiro_id is not None
             else models.listar_barbeiros(barbearia_id, somente_ativos=True)
         ),
         formas_pagamento=agenda.FORMAS_PAGAMENTO,
-        horario_unidade=(
-            agenda.horarios_da_unidade(barbearia_id, unidade_id)[dia.weekday()]
-            if unidade else []
-        ),
     )
 
 
