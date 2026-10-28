@@ -171,3 +171,210 @@ button:hover {
 tr.inativo td {
     color: #999;
 }
+
+/* ---------- MENSAGENS ---------- */
+
+.alerta.sucesso {
+    background-color: #e8f5e9;
+    color: #1b5e20;
+}
+
+/* ---------- AGENDA ---------- */
+
+.agenda-topo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.8rem 1.5rem;
+}
+
+.navega-dia {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.form-dia {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.botao-link {
+    display: inline-block;
+    background: #1a1a1a;
+    color: #fff;
+    padding: 0.4rem 0.8rem;
+    border-radius: 4px;
+    text-decoration: none;
+    font-weight: 700;
+}
+
+.botao-link:hover {
+    background: #d4af37;
+    color: #1a1a1a;
+}
+
+.dia-titulo,
+.resumo-dia {
+    margin: 0;
+}
+
+fieldset {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 0.6rem 0.8rem;
+}
+
+legend {
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 0 0.3rem;
+}
+
+label.opcao {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 400;
+    padding: 0.3rem 0;
+}
+
+.grupo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding-left: 0.8rem;
+    border-left: 3px solid #d4af37;
+}
+
+.agendamento {
+    display: grid;
+    grid-template-columns: 5.5rem 1fr auto;
+    gap: 0.8rem;
+    align-items: start;
+    padding: 0.8rem 0;
+    border-bottom: 1px solid #eee;
+}
+
+.agendamento:last-child {
+    border-bottom: none;
+}
+
+.ag-hora {
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.ag-hora span {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 400;
+    color: #666;
+}
+
+.ag-tel {
+    color: #666;
+    margin-left: 0.4rem;
+}
+
+.ag-acoes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    justify-content: flex-end;
+}
+
+.ag-acoes .form-linha {
+    display: flex;
+    flex-direction: row;
+    gap: 0.3rem;
+}
+
+.ag-acoes select {
+    padding: 0.3rem;
+}
+
+.status-cancelado,
+.status-faltou {
+    opacity: 0.6;
+}
+
+.status-cancelado .ag-info strong {
+    text-decoration: line-through;
+}
+
+.selo {
+    display: inline-block;
+    margin-top: 0.3rem;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.selo-marcado { background: #fff8e1; color: #8d6e00; }
+.selo-concluido { background: #e8f5e9; color: #1b5e20; }
+.selo-faltou { background: #fdecea; color: #b71c1c; }
+.selo-cancelado { background: #eee; color: #555; }
+
+button.secundario {
+    background-color: #fff;
+    color: #1a1a1a;
+    border: 1px solid #1a1a1a;
+}
+
+.form-largo {
+    max-width: none;
+}
+
+.grade-horarios input {
+    width: 100%;
+    min-width: 6.5rem;
+}
+
+h4 {
+    margin-top: 0.5rem;
+}
+
+/* ---------- CELULAR ---------- */
+
+@media (max-width: 700px) {
+    .navbar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.8rem;
+        padding: 1rem;
+    }
+
+    .navbar ul {
+        flex-wrap: wrap;
+        gap: 0.6rem 1rem;
+    }
+
+    .usuario-logado {
+        flex-wrap: wrap;
+    }
+
+    .container {
+        margin: 1rem auto;
+    }
+
+    .card {
+        padding: 1rem;
+        overflow-x: auto;
+    }
+
+    form {
+        max-width: none;
+    }
+
+    .agendamento {
+        grid-template-columns: 4.5rem 1fr;
+    }
+
+    .ag-acoes {
+        grid-column: 1 / -1;
+        justify-content: flex-start;
+    }
+}

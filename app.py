@@ -1,15 +1,15 @@
 """
 app.py
 
-Aplicação Flask do Sistema de Gestão de Barbearia — rotas para
-login, dashboard, clientes, atendimentos, relatórios financeiros e o
-cadastro de barbeiros, serviços e usuários (só o dono).
+Aplicação Flask do MeuBarber — rotas para login, agenda, dashboard,
+clientes, atendimentos, relatórios financeiros e o cadastro de unidades,
+barbeiros, serviços e usuários (só o dono).
 
 Cada usuário pertence a uma barbearia e só vê os dados dela.
 
 Papéis de acesso:
   dono     -> vê e faz tudo na própria barbearia
-  barbeiro -> vê só os próprios atendimentos e comissões
+  barbeiro -> vê só a própria agenda, atendimentos e comissões
 """
 
 import functools
@@ -19,11 +19,14 @@ import os
 import secrets
 import time
 
+from datetime import timedelta
+
 from flask import (
     Flask,
     abort,
     flash,
     g,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -32,6 +35,7 @@ from flask import (
 )
 from flask_wtf.csrf import CSRFProtect
 
+import agenda
 import database
 import models
 import reports
@@ -358,11 +362,19 @@ def editar_barbeiro(barbeiro_id):
                 request.form.get("nome"),
                 request.form.get("comissao_percentual", ""),
             )
+            if "unidade_id" in request.form:
+                agenda.definir_unidade_do_barbeiro(
+                    barbearia_id, barbeiro_id, request.form.get("unidade_id")
+                )
         except ValueError as erro:
             flash(str(erro))
             return redirect(url_for("editar_barbeiro", barbeiro_id=barbeiro_id))
         return redirect(url_for("barbeiros"))
-    return render_template("editar_barbeiro.html", barbeiro=barbeiro)
+    return render_template(
+        "editar_barbeiro.html",
+        barbeiro=barbeiro,
+        unidades=agenda.listar_unidades(barbearia_id),
+    )
 
 
 @app.route("/barbeiros/<int:barbeiro_id>/ativo", methods=["POST"])
@@ -512,6 +524,299 @@ def ativar_usuario(usuario_id):
     except ValueError as erro:
         flash(str(erro))
     return redirect(url_for("usuarios"))
+
+
+# ---------- AGENDA ----------
+# O dono vê e mexe na agenda de todos; o barbeiro, só na dele.
+
+def _dia_da_agenda():
+    try:
+        return agenda.ler_data(request.args.get("data") or agenda.hoje())
+    except ValueError:
+        return agenda.hoje()
+
+
+def _unidade_da_agenda(unidades):
+    """Unidade escolhida (?unidade=), ou a primeira ativa."""
+    escolhida = request.args.get("unidade", type=int)
+    for unidade in unidades:
+        if unidade["id"] == escolhida:
+            return unidade
+    return unidades[0] if unidades else None
+
+
+def _agendamento_permitido(agendamento_id):
+    """O agendamento da barbearia; para o barbeiro, só se for dele (senão 404)."""
+    agendamento = _ou_404(agenda.buscar_agendamento(barbearia_logada(), agendamento_id))
+    barbeiro_id = barbeiro_logado()
+    if barbeiro_id is not None and agendamento["barbeiro_id"] != barbeiro_id:
+        abort(404)
+    return agendamento
+
+
+def _voltar_para_agenda(agendamento=None):
+    destino = request.form.get("voltar", "")
+    if destino.startswith("/agenda"):  # só volta para dentro da agenda
+        return redirect(destino)
+    if agendamento is not None:
+        return redirect(url_for(
+            "agenda_dia", data=agendamento["inicio"][:10], unidade=agendamento["unidade_id"]
+        ))
+    return redirect(url_for("agenda_dia"))
+
+
+@app.route("/agenda")
+@login_obrigatorio
+def agenda_dia():
+    barbearia_id = barbearia_logada()
+    barbeiro_id = barbeiro_logado()
+    dia = _dia_da_agenda()
+    unidades = agenda.listar_unidades(barbearia_id, somente_ativas=True)
+    unidade = _unidade_da_agenda(unidades)
+    unidade_id = unidade["id"] if unidade else None
+
+    if barbeiro_id is not None:
+        barbeiros = [models.buscar_barbeiro(barbearia_id, barbeiro_id)]
+    else:
+        barbeiros = agenda.barbeiros_da_unidade(barbearia_id, unidade_id) if unidade else []
+    agendamentos = (
+        agenda.listar_agenda(barbearia_id, dia, unidade_id, barbeiro_id) if unidade else []
+    )
+    por_barbeiro = {b["id"]: [] for b in barbeiros}
+    for item in agendamentos:
+        por_barbeiro.setdefault(item["barbeiro_id"], []).append(item)
+    nomes = {b["id"]: b["nome"] for b in barbeiros}
+    for item in agendamentos:
+        nomes.setdefault(item["barbeiro_id"], item["barbeiro"])
+
+    return render_template(
+        "agenda.html",
+        dia=dia,
+        hoje=agenda.hoje(),
+        anterior=dia - timedelta(days=1),
+        seguinte=dia + timedelta(days=1),
+        dia_da_semana=agenda.DIAS_DA_SEMANA[dia.weekday()],
+        unidades=unidades,
+        unidade=unidade,
+        barbeiros=barbeiros,
+        por_barbeiro=por_barbeiro,
+        nomes=nomes,
+        marcados=sum(1 for a in agendamentos if a["status"] == "marcado"),
+        previsto=sum(a["total"] for a in agendamentos if a["status"] in ("marcado", "concluido")),
+        clientes=models.listar_clientes(barbearia_id),
+        servicos=models.listar_servicos(barbearia_id, somente_ativos=True),
+        bloqueios=agenda.listar_bloqueios(barbearia_id, agenda.agora(), barbeiro_id),
+        todos_barbeiros=(
+            barbeiros if barbeiro_id is not None
+            else models.listar_barbeiros(barbearia_id, somente_ativos=True)
+        ),
+        formas_pagamento=agenda.FORMAS_PAGAMENTO,
+        horario_unidade=(
+            agenda.horarios_da_unidade(barbearia_id, unidade_id)[dia.weekday()]
+            if unidade else []
+        ),
+    )
+
+
+@app.route("/agenda/horarios")
+@login_obrigatorio
+def agenda_horarios():
+    """Horários livres em JSON, para o formulário de novo agendamento."""
+    barbeiro_id = barbeiro_logado()
+    if barbeiro_id is None:
+        barbeiro_id = request.args.get("barbeiro") or None
+    try:
+        horarios = agenda.horarios_livres(
+            barbearia_logada(),
+            request.args.get("unidade"),
+            request.args.get("data"),
+            [s for s in request.args.get("servicos", "").split(",") if s],
+            barbeiro_id,
+        )
+    except ValueError as erro:
+        return jsonify({"horarios": [], "erro": str(erro)})
+    return jsonify({"horarios": horarios})
+
+
+@app.route("/agenda/novo", methods=["POST"])
+@login_obrigatorio
+def novo_agendamento():
+    barbearia_id = barbearia_logada()
+    barbeiro_id = barbeiro_logado()
+    if barbeiro_id is None:
+        barbeiro_id = request.form.get("barbeiro_id") or None
+    dia = request.form.get("data", "")
+    unidade_id = request.form.get("unidade_id", "")
+    voltar = url_for("agenda_dia", data=dia, unidade=unidade_id)
+    try:
+        cliente_id = request.form.get("cliente_id") or None
+        novo_nome = request.form.get("novo_cliente_nome", "").strip()
+        if cliente_id is None and not novo_nome:
+            raise ValueError("Escolha um cliente ou cadastre um novo.")
+        # Confere o horário antes de cadastrar o cliente novo, para não
+        # deixar cliente sobrando quando o horário não serve.
+        servico_ids = request.form.getlist("servico_id")
+        livres = agenda.horarios_livres(barbearia_id, unidade_id, dia, servico_ids, barbeiro_id)
+        if request.form.get("hora") not in [h["hora"] for h in livres]:
+            raise ValueError("Esse horário não está livre. Escolha outro.")
+        if cliente_id is None:
+            cliente_id = models.criar_cliente(
+                barbearia_id, novo_nome,
+                request.form.get("novo_cliente_telefone", "").strip() or None,
+            )
+        agenda.criar_agendamento(
+            barbearia_id, unidade_id, cliente_id, servico_ids, dia,
+            request.form.get("hora", ""), barbeiro_id,
+            request.form.get("observacao"),
+        )
+    except ValueError as erro:
+        flash(str(erro))
+        return redirect(voltar)
+    flash("Horário marcado.", "ok")
+    return redirect(voltar)
+
+
+@app.route("/agenda/<int:agendamento_id>/concluir", methods=["POST"])
+@login_obrigatorio
+def concluir_agendamento(agendamento_id):
+    agendamento = _agendamento_permitido(agendamento_id)
+    try:
+        agenda.concluir_agendamento(
+            barbearia_logada(), agendamento_id, request.form.get("forma_pagamento", "")
+        )
+    except ValueError as erro:
+        flash(str(erro))
+    return _voltar_para_agenda(agendamento)
+
+
+@app.route("/agenda/<int:agendamento_id>/faltou", methods=["POST"])
+@login_obrigatorio
+def falta_agendamento(agendamento_id):
+    agendamento = _agendamento_permitido(agendamento_id)
+    try:
+        agenda.marcar_falta(barbearia_logada(), agendamento_id)
+    except ValueError as erro:
+        flash(str(erro))
+    return _voltar_para_agenda(agendamento)
+
+
+@app.route("/agenda/<int:agendamento_id>/cancelar", methods=["POST"])
+@login_obrigatorio
+def cancelar_agendamento(agendamento_id):
+    agendamento = _agendamento_permitido(agendamento_id)
+    try:
+        agenda.cancelar_agendamento(barbearia_logada(), agendamento_id)
+    except ValueError as erro:
+        flash(str(erro))
+    return _voltar_para_agenda(agendamento)
+
+
+@app.route("/agenda/bloqueios/novo", methods=["POST"])
+@login_obrigatorio
+def novo_bloqueio():
+    barbeiro_id = barbeiro_logado()
+    if barbeiro_id is None:
+        barbeiro_id = request.form.get("barbeiro_id", "")
+    try:
+        agenda.criar_bloqueio(
+            barbearia_logada(), barbeiro_id,
+            request.form.get("inicio", ""), request.form.get("fim", ""),
+            request.form.get("motivo"),
+        )
+    except ValueError as erro:
+        flash(str(erro))
+    return _voltar_para_agenda()
+
+
+@app.route("/agenda/bloqueios/<int:bloqueio_id>/remover", methods=["POST"])
+@login_obrigatorio
+def remover_bloqueio(bloqueio_id):
+    barbearia_id = barbearia_logada()
+    bloqueio = _ou_404(agenda.buscar_bloqueio(barbearia_id, bloqueio_id))
+    barbeiro_id = barbeiro_logado()
+    if barbeiro_id is not None and bloqueio["barbeiro_id"] != barbeiro_id:
+        abort(404)
+    agenda.remover_bloqueio(barbearia_id, bloqueio_id)
+    return _voltar_para_agenda()
+
+
+# ---------- UNIDADES (SÓ O DONO) ----------
+
+@app.route("/unidades")
+@somente_dono
+def unidades():
+    return render_template(
+        "unidades.html", unidades=agenda.listar_unidades(barbearia_logada())
+    )
+
+
+@app.route("/unidades/novo", methods=["POST"])
+@somente_dono
+def nova_unidade():
+    try:
+        unidade_id = agenda.criar_unidade(
+            barbearia_logada(), request.form.get("nome"), request.form.get("endereco")
+        )
+    except ValueError as erro:
+        flash(str(erro))
+        return redirect(url_for("unidades"))
+    flash("Unidade criada com o horário padrão (segunda a sábado, 9h às 19h). Ajuste abaixo.", "ok")
+    return redirect(url_for("editar_unidade", unidade_id=unidade_id))
+
+
+def _horarios_do_formulario():
+    """Campos abre_<dia>_<faixa> / fecha_<dia>_<faixa> -> {dia: [(abre, fecha)]}."""
+    horarios = {}
+    for dia in range(7):
+        faixas = []
+        for faixa in (1, 2):
+            abre = request.form.get(f"abre_{dia}_{faixa}", "").strip()
+            fecha = request.form.get(f"fecha_{dia}_{faixa}", "").strip()
+            if abre or fecha:
+                if not (abre and fecha):
+                    raise ValueError(
+                        f"{agenda.DIAS_DA_SEMANA[dia]}: preencha abrir e fechar."
+                    )
+                faixas.append((abre, fecha))
+        horarios[dia] = faixas
+    return horarios
+
+
+@app.route("/unidades/<int:unidade_id>/editar", methods=["GET", "POST"])
+@somente_dono
+def editar_unidade(unidade_id):
+    barbearia_id = barbearia_logada()
+    unidade = _ou_404(agenda.buscar_unidade(barbearia_id, unidade_id))
+    if request.method == "POST":
+        try:
+            agenda.editar_unidade(
+                barbearia_id, unidade_id,
+                request.form.get("nome"), request.form.get("endereco"),
+            )
+            agenda.salvar_horarios(barbearia_id, unidade_id, _horarios_do_formulario())
+        except ValueError as erro:
+            flash(str(erro))
+            return redirect(url_for("editar_unidade", unidade_id=unidade_id))
+        flash("Unidade salva.", "ok")
+        return redirect(url_for("unidades"))
+    return render_template(
+        "editar_unidade.html",
+        unidade=unidade,
+        horarios=agenda.horarios_da_unidade(barbearia_id, unidade_id),
+        dias=agenda.DIAS_DA_SEMANA,
+    )
+
+
+@app.route("/unidades/<int:unidade_id>/ativo", methods=["POST"])
+@somente_dono
+def ativar_unidade(unidade_id):
+    barbearia_id = barbearia_logada()
+    _ou_404(agenda.buscar_unidade(barbearia_id, unidade_id))
+    try:
+        agenda.definir_unidade_ativa(barbearia_id, unidade_id, _ativo_do_formulario())
+    except ValueError as erro:
+        flash(str(erro))
+    return redirect(url_for("unidades"))
 
 
 if __name__ == "__main__":

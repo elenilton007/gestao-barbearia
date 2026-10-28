@@ -1,8 +1,7 @@
 """
 database.py
 
-Módulo responsável pela conexão com o banco de dados do Sistema de
-Gestão de Barbearia.
+Módulo responsável pela conexão com o banco de dados do MeuBarber.
 
 Sem a variável de ambiente DATABASE_URL o banco é um arquivo SQLite
 (desenvolvimento local). Com DATABASE_URL (por exemplo
@@ -251,12 +250,66 @@ def _adicionar_coluna_ativo(conn):
             )
 
 
+# Horário de funcionamento de uma unidade nova: segunda a sábado, das 9h
+# às 19h (dia_semana: 0 = segunda ... 6 = domingo). O dono muda na tela
+# Unidades.
+HORARIO_PADRAO = tuple((dia, "09:00", "19:00") for dia in range(6))
+
+
+def criar_unidade_padrao(conn, barbearia_id, nome="Principal"):
+    """
+    Cria uma unidade com o HORARIO_PADRAO, usando a conexão recebida (sem
+    commit, para entrar na mesma transação de quem chamou). Retorna o id.
+    """
+    unidade_id = conn.execute(
+        "INSERT INTO unidades (barbearia_id, nome) VALUES (?, ?) RETURNING id",
+        (barbearia_id, nome),
+    ).fetchone()[0]
+    for dia, abre, fecha in HORARIO_PADRAO:
+        conn.execute(
+            """
+            INSERT INTO horarios_funcionamento
+                (barbearia_id, unidade_id, dia_semana, abre, fecha)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (barbearia_id, unidade_id, dia, abre, fecha),
+        )
+    return unidade_id
+
+
+def _preparar_agenda(conn):
+    """
+    Banco criado antes da agenda: liga o barbeiro a uma unidade (vazio =
+    atende em todas), liga o atendimento ao agendamento que o gerou e dá a
+    toda barbearia sem unidade a unidade "Principal".
+    """
+    if "unidade_id" not in _colunas(conn, "barbeiros"):
+        conn.execute(
+            "ALTER TABLE barbeiros ADD COLUMN unidade_id INTEGER REFERENCES unidades (id)"
+        )
+    if "agendamento_id" not in _colunas(conn, "atendimentos"):
+        # Sem chave estrangeira de propósito: o schema.sql apaga as tabelas
+        # da agenda antes de atendimentos, e o SQLite não tem DROP CASCADE.
+        conn.execute("ALTER TABLE atendimentos ADD COLUMN agendamento_id INTEGER")
+    sem_unidade = conn.execute(
+        """
+        SELECT id FROM barbearias
+        WHERE NOT EXISTS (
+            SELECT 1 FROM unidades WHERE unidades.barbearia_id = barbearias.id
+        )
+        ORDER BY id
+        """
+    ).fetchall()
+    for linha in sem_unidade:
+        criar_unidade_padrao(conn, linha["id"])
+
+
 def atualizar_banco():
     """
     Atualiza um banco antigo sem apagar nada: separa os dados por
     barbearia, grava a comissão em cada atendimento e cria a tabela de
-    usuários e a coluna ativo, se ainda não existirem. Pode ser executada
-    várias vezes.
+    usuários, a coluna ativo e as tabelas da agenda, se ainda não
+    existirem. Pode ser executada várias vezes.
     """
     conn = get_connection()
     _separar_por_barbearia(conn)
@@ -266,6 +319,11 @@ def atualizar_banco():
     _executar_script("schema_usuarios.sql")
     conn = get_connection()
     _adicionar_coluna_ativo(conn)
+    conn.commit()
+    conn.close()
+    _executar_script("schema_agenda.sql")
+    conn = get_connection()
+    _preparar_agenda(conn)
     conn.commit()
     conn.close()
 

@@ -1,5 +1,5 @@
 -- schema.sql
--- Esquema do banco de dados do Sistema de Gestão de Barbearia
+-- Esquema do banco de dados do MeuBarber
 -- Modelo relacional simples, normalizado, cobrindo clientes, serviços,
 -- barbeiros e atendimentos (agendamentos/vendas realizadas).
 --
@@ -13,12 +13,20 @@
 -- trechos diferentes (AUTOINCREMENT, REAL e datetime('now')).
 -- Os dados de exemplo ficam em dados_exemplo.sql.
 
+-- As tabelas da agenda (schema_agenda.sql) apontam para estas, então
+-- são apagadas antes; unidades é apagada depois de barbeiros, que aponta
+-- para ela.
 DROP TABLE IF EXISTS tentativas_login;
 DROP TABLE IF EXISTS usuarios;
+DROP TABLE IF EXISTS agendamento_servicos;
+DROP TABLE IF EXISTS agendamentos;
+DROP TABLE IF EXISTS bloqueios;
+DROP TABLE IF EXISTS horarios_funcionamento;
 DROP TABLE IF EXISTS atendimentos;
 DROP TABLE IF EXISTS clientes;
 DROP TABLE IF EXISTS servicos;
 DROP TABLE IF EXISTS barbeiros;
+DROP TABLE IF EXISTS unidades;
 DROP TABLE IF EXISTS barbearias;
 
 CREATE TABLE barbearias (

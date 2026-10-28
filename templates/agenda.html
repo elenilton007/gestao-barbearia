@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% set voltar = url_for('agenda_dia', data=dia.isoformat(), unidade=unidade.id if unidade else None) %}
+<h2>📅 Agenda</h2>
+
+<div class="card agenda-topo">
+    <div class="navega-dia">
+        <a class="botao-link" href="{{ url_for('agenda_dia', data=anterior.isoformat(), unidade=unidade.id if unidade else None) }}" aria-label="Dia anterior">←</a>
+        <form method="GET" action="{{ url_for('agenda_dia') }}" class="form-dia">
+            {% if unidade %}<input type="hidden" name="unidade" value="{{ unidade.id }}">{% endif %}
+            <input type="date" name="data" value="{{ dia.isoformat() }}" onchange="this.form.submit()" aria-label="Dia">
+        </form>
+        <a class="botao-link" href="{{ url_for('agenda_dia', data=seguinte.isoformat(), unidade=unidade.id if unidade else None) }}" aria-label="Próximo dia">→</a>
+        {% if dia != hoje %}
+        <a href="{{ url_for('agenda_dia', unidade=unidade.id if unidade else None) }}">Hoje</a>
+        {% endif %}
+    </div>
+    <p class="dia-titulo">{{ dia_da_semana }}, {{ dia.strftime('%d/%m/%Y') }}
+        {% if horario_unidade %}· aberto {% for abre, fecha in horario_unidade %}{{ abre }}–{{ fecha }}{{ ', ' if not loop.last }}{% endfor %}
+        {% else %}· <strong>fechado</strong>{% endif %}
+    </p>
+    {% if unidades|length > 1 %}
+    <form method="GET" action="{{ url_for('agenda_dia') }}" class="form-dia">
+        <input type="hidden" name="data" value="{{ dia.isoformat() }}">
+        <label for="unidade-filtro">Unidade:</label>
+        <select id="unidade-filtro" name="unidade" onchange="this.form.submit()">
+            {% for u in unidades %}
+            <option value="{{ u.id }}" {{ 'selected' if unidade and u.id == unidade.id }}>{{ u.nome }}</option>
+            {% endfor %}
+        </select>
+    </form>
+    {% endif %}
+    <p class="resumo-dia"><strong>{{ marcados }}</strong> horário(s) a atender ·
+        previsto <strong>R$ {{ "%.2f"|format(previsto) }}</strong></p>
+</div>
+
+{% if not unidade %}
+<div class="card"><p>Nenhuma unidade ativa. {% if g.usuario.papel == 'dono' %}Reative uma em <a href="{{ url_for('unidades') }}">Unidades</a>.{% endif %}</p></div>
+{% else %}
+
+<div class="card">
+    <h3>Novo agendamento</h3>
+    <form method="POST" action="{{ url_for('novo_agendamento') }}" id="form-agendar">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="unidade_id" id="ag-unidade" value="{{ unidade.id }}">
+
+        <fieldset>
+            <legend>Serviços</legend>
+            {% for servico in servicos %}
+            <label class="opcao">
+                <input type="checkbox" name="servico_id" value="{{ servico.id }}" class="ag-servico">
+                {{ servico.nome }} · R$ {{ "%.2f"|format(servico.preco) }} · {{ servico.duracao_minutos }} min
+            </label>
+            {% else %}
+            <p class="dica">Nenhum serviço ativo.</p>
+            {% endfor %}
+        </fieldset>
+
+        {% if g.usuario.papel == 'dono' %}
+        <label for="ag-barbeiro">Barbeiro:</label>
+        <select id="ag-barbeiro" name="barbeiro_id">
+            <option value="">Sem preferência (primeiro livre)</option>
+            {% for barbeiro in barbeiros %}
+            <option value="{{ barbeiro.id }}">{{ barbeiro.nome }}</option>
+            {% endfor %}
+        </select>
+        {% endif %}
+
+        <label for="ag-data">Dia:</label>
+        <input type="date" id="ag-data" name="data" value="{{ dia.isoformat() }}" min="{{ hoje.isoformat() }}" required>
+
+        <label for="ag-hora">Horário:</label>
+        <select id="ag-hora" name="hora" required>
+            <option value="">Escolha os serviços primeiro</option>
+        </select>
+        <p class="dica" id="ag-aviso"></p>
+
+        <label for="ag-cliente">Cliente:</label>
+        <select id="ag-cliente" name="cliente_id">
+            <option value="">— cliente novo (preencha abaixo) —</option>
+            {% for cliente in clientes %}
+            <option value="{{ cliente.id }}">{{ cliente.nome }}{% if cliente.telefone %} · {{ cliente.telefone }}{% endif %}</option>
+            {% endfor %}
+        </select>
+        <div id="ag-novo-cliente" class="grupo">
+            <label for="novo_cliente_nome">Nome do cliente novo:</label>
+            <input type="text" id="novo_cliente_nome" name="novo_cliente_nome">
+            <label for="novo_cliente_telefone">Telefone (WhatsApp):</label>
+            <input type="tel" id="novo_cliente_telefone" name="novo_cliente_telefone" placeholder="(71) 90000-0000">
+        </div>
+
+        <label for="observacao">Observação:</label>
+        <input type="text" id="observacao" name="observacao" maxlength="200">
+
+        <button type="submit">Marcar horário</button>
+    </form>
+</div>
+
+{% for barbeiro_id, itens in por_barbeiro.items() %}
+<div class="card">
+    <h3>💈 {{ nomes[barbeiro_id] }}</h3>
+    {% for item in itens %}
+    <div class="agendamento status-{{ item.status }}">
+        <div class="ag-hora">{{ item.hora }}<span>–{{ item.hora_fim }}</span></div>
+        <div class="ag-info">
+            <strong>{{ item.cliente }}</strong>
+            {% if item.telefone %}<span class="ag-tel">{{ item.telefone }}</span>{% endif %}
+            <div>{{ item.servicos|join(' + ') }} · R$ {{ "%.2f"|format(item.total) }}</div>
+            {% if item.observacao %}<div class="dica">{{ item.observacao }}</div>{% endif %}
+            <span class="selo selo-{{ item.status }}">{{ {'marcado': 'Marcado', 'concluido': 'Concluído', 'faltou': 'Faltou', 'cancelado': 'Cancelado'}[item.status] }}</span>
+        </div>
+        {% if item.status == 'marcado' %}
+        <div class="ag-acoes">
+            {% if dia <= hoje %}
+            <form method="POST" action="{{ url_for('concluir_agendamento', agendamento_id=item.id) }}" class="form-linha">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="voltar" value="{{ voltar }}">
+                <select name="forma_pagamento" aria-label="Forma de pagamento">
+                    {% for forma in formas_pagamento %}
+                    <option value="{{ forma }}">{{ {'dinheiro': 'Dinheiro', 'cartao': 'Cartão', 'pix': 'Pix'}[forma] }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit">Concluir</button>
+            </form>
+            <form method="POST" action="{{ url_for('falta_agendamento', agendamento_id=item.id) }}" class="form-linha">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="voltar" value="{{ voltar }}">
+                <button type="submit" class="secundario">Faltou</button>
+            </form>
+            {% endif %}
+            <form method="POST" action="{{ url_for('cancelar_agendamento', agendamento_id=item.id) }}" class="form-linha"
+                  onsubmit='return confirm({{ ("Cancelar o horário de " ~ item.cliente ~ " às " ~ item.hora ~ "?")|tojson }})'>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="voltar" value="{{ voltar }}">
+                <button type="submit" class="secundario">Cancelar</button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+    {% else %}
+    <p class="dica">Nenhum horário marcado neste dia.</p>
+    {% endfor %}
+</div>
+{% endfor %}
+{% endif %}
+
+<div class="card">
+    <h3>Bloqueios (folga, almoço, férias)</h3>
+    <form method="POST" action="{{ url_for('novo_bloqueio') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="voltar" value="{{ voltar }}">
+        {% if g.usuario.papel == 'dono' %}
+        <label for="bl-barbeiro">Barbeiro:</label>
+        <select id="bl-barbeiro" name="barbeiro_id" required>
+            {% for barbeiro in todos_barbeiros %}
+            <option value="{{ barbeiro.id }}">{{ barbeiro.nome }}</option>
+            {% endfor %}
+        </select>
+        {% endif %}
+        <label for="bl-inicio">Início:</label>
+        <input type="datetime-local" id="bl-inicio" name="inicio" value="{{ dia.isoformat() }}T12:00" required>
+        <label for="bl-fim">Fim:</label>
+        <input type="datetime-local" id="bl-fim" name="fim" value="{{ dia.isoformat() }}T13:00" required>
+        <label for="bl-motivo">Motivo:</label>
+        <input type="text" id="bl-motivo" name="motivo" placeholder="Almoço, folga, médico..." maxlength="100">
+        <button type="submit">Bloquear</button>
+    </form>
+    <p class="dica">Bloqueio não desmarca o que já está marcado: confira a agenda do período.</p>
+    {% if bloqueios %}
+    <table>
+        <thead><tr><th>Barbeiro</th><th>De</th><th>Até</th><th>Motivo</th><th></th></tr></thead>
+        <tbody>
+            {% for bloqueio in bloqueios %}
+            <tr>
+                <td>{{ bloqueio.barbeiro }}</td>
+                <td>{{ bloqueio.inicio[8:10] }}/{{ bloqueio.inicio[5:7] }} {{ bloqueio.inicio[11:16] }}</td>
+                <td>{{ bloqueio.fim[8:10] }}/{{ bloqueio.fim[5:7] }} {{ bloqueio.fim[11:16] }}</td>
+                <td>{{ bloqueio.motivo or '' }}</td>
+                <td>
+                    <form method="POST" action="{{ url_for('remover_bloqueio', bloqueio_id=bloqueio.id) }}" class="form-linha">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="voltar" value="{{ voltar }}">
+                        <button type="submit" class="secundario">Remover</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>
+
+{% if unidade %}
+<script>
+(function () {
+    var form = document.getElementById("form-agendar");
+    var hora = document.getElementById("ag-hora");
+    var aviso = document.getElementById("ag-aviso");
+    var data = document.getElementById("ag-data");
+    var barbeiro = document.getElementById("ag-barbeiro");
+    var cliente = document.getElementById("ag-cliente");
+    var novoCliente = document.getElementById("ag-novo-cliente");
+    var pedido = 0;
+
+    function servicos() {
+        return Array.prototype.filter.call(
+            form.querySelectorAll(".ag-servico"), function (c) { return c.checked; }
+        ).map(function (c) { return c.value; });
+    }
+
+    function opcao(valor, texto) {
+        var o = document.createElement("option");
+        o.value = valor;
+        o.textContent = texto;
+        return o;
+    }
+
+    function atualizarHorarios() {
+        var escolhidos = servicos();
+        hora.innerHTML = "";
+        aviso.textContent = "";
+        if (!escolhidos.length) {
+            hora.appendChild(opcao("", "Escolha os serviços primeiro"));
+            return;
+        }
+        hora.appendChild(opcao("", "Carregando..."));
+        var params = new URLSearchParams({
+            unidade: document.getElementById("ag-unidade").value,
+            data: data.value,
+            servicos: escolhidos.join(","),
+            barbeiro: barbeiro ? barbeiro.value : ""
+        });
+        var este = ++pedido;
+        fetch("{{ url_for('agenda_horarios') }}?" + params.toString(), {credentials: "same-origin"})
+            .then(function (r) { return r.json(); })
+            .then(function (resposta) {
+                if (este !== pedido) { return; }
+                hora.innerHTML = "";
+                if (!resposta.horarios.length) {
+                    hora.appendChild(opcao("", "Nenhum horário livre"));
+                    aviso.textContent = resposta.erro || "Tente outro dia ou outro barbeiro.";
+                    return;
+                }
+                hora.appendChild(opcao("", "Escolha o horário"));
+                resposta.horarios.forEach(function (h) {
+                    hora.appendChild(opcao(h.hora, h.hora));
+                });
+            })
+            .catch(function () {
+                hora.innerHTML = "";
+                hora.appendChild(opcao("", "Erro ao carregar"));
+            });
+    }
+
+    function mostrarNovoCliente() {
+        var novo = !cliente.value;
+        novoCliente.style.display = novo ? "" : "none";
+        document.getElementById("novo_cliente_nome").required = novo;
+    }
+
+    form.addEventListener("change", function (e) {
+        if (e.target === cliente) { mostrarNovoCliente(); return; }
+        if (e.target.classList.contains("ag-servico") || e.target === data || e.target === barbeiro) {
+            atualizarHorarios();
+        }
+    });
+    mostrarNovoCliente();
+})();
+</script>
+{% endif %}
+{% endblock %}

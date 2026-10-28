@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>🏠 Unidades</h2>
+
+<div class="card">
+    <h3>Cadastrar Nova Unidade</h3>
+    <form method="POST" action="{{ url_for('nova_unidade') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="nome">Nome:</label>
+        <input type="text" id="nome" name="nome" placeholder="Centro, Shopping..." required>
+
+        <label for="endereco">Endereço:</label>
+        <input type="text" id="endereco" name="endereco">
+
+        <button type="submit">Cadastrar</button>
+    </form>
+</div>
+
+<div class="card">
+    <h3>Lista de Unidades</h3>
+    <p class="dica">Unidade desativada some da agenda; os agendamentos antigos
+        continuam no histórico. Em <a href="{{ url_for('barbeiros') }}">Barbeiros</a>
+        você escolhe em qual unidade cada um atende.</p>
+    <table>
+        <thead>
+            <tr><th>Nome</th><th>Endereço</th><th>Situação</th><th></th></tr>
+        </thead>
+        <tbody>
+            {% for unidade in unidades %}
+            <tr class="{{ '' if unidade.ativo else 'inativo' }}">
+                <td>{{ unidade.nome }}</td>
+                <td>{{ unidade.endereco or '' }}</td>
+                <td>{{ "Ativa" if unidade.ativo else "Desativada" }}</td>
+                <td>
+                    <div class="acoes">
+                    <a href="{{ url_for('editar_unidade', unidade_id=unidade.id) }}">Editar e horários</a>
+                    {% with registro=unidade, rota=url_for('ativar_unidade', unidade_id=unidade.id) %}
+                    {% include "_ativo.html" %}
+                    {% endwith %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -72,10 +72,13 @@ pelas telas, e rodar `python database.py` **apaga todos os dados**
 
 Concorrentes (Trinks, AppBarber, Booksy, Avec etc.) já oferecem:
 
-- **Agenda / agendamento online** — o recurso mais importante. Hoje o
-  sistema só registra o que já aconteceu. Falta agenda por barbeiro,
-  horários de funcionamento, bloqueios, e um link público para o cliente
-  marcar sozinho.
+- **Agenda / agendamento online** — o recurso mais importante.
+  ~~Agenda por barbeiro, unidades, horário de funcionamento (com almoço),
+  bloqueios, "sem preferência" (pega o barbeiro livre menos ocupado),
+  comanda com vários serviços e concluir/faltou/cancelar lançando na
+  gestão.~~ Feito (menus *Agenda* e *Unidades*). Falta o **link público**
+  para o cliente marcar sozinho (próximo passo), horário próprio por
+  barbeiro e visão semanal.
 - **Lembretes por WhatsApp/SMS** (confirmação e redução de faltas).
 - **CRUD completo** — editar/excluir clientes e atendimentos (barbeiros,
   serviços e comissões já têm tela).

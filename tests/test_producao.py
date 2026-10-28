@@ -29,8 +29,10 @@ RAIZ = os.path.join(os.path.dirname(__file__), "..")
 
 def _apagar_tabelas():
     conn = database.get_connection()
-    for tabela in ("tentativas_login", "usuarios", "atendimentos", "clientes",
-                   "servicos", "barbeiros", "barbearias"):
+    for tabela in ("tentativas_login", "usuarios", "agendamento_servicos",
+                   "agendamentos", "bloqueios", "horarios_funcionamento",
+                   "atendimentos", "clientes", "servicos", "barbeiros",
+                   "unidades", "barbearias"):
         conn.execute(f"DROP TABLE IF EXISTS {tabela}")
     conn.commit()
     conn.close()

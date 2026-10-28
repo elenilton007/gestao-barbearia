@@ -2,6 +2,7 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>MeuBarber — gestão e agendamento para barbearias</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
@@ -10,11 +11,13 @@
         <h1>💈 MeuBarber</h1>
         {% if g.usuario %}
         <ul>
+            <li><a href="{{ url_for('agenda_dia') }}">Agenda</a></li>
             <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
             <li><a href="{{ url_for('clientes') }}">Clientes</a></li>
             <li><a href="{{ url_for('atendimentos') }}">Atendimentos</a></li>
             {% if g.usuario.papel == "dono" %}
             <li><a href="{{ url_for('relatorios') }}">Relatórios</a></li>
+            <li><a href="{{ url_for('unidades') }}">Unidades</a></li>
             <li><a href="{{ url_for('barbeiros') }}">Barbeiros</a></li>
             <li><a href="{{ url_for('servicos') }}">Serviços</a></li>
             <li><a href="{{ url_for('usuarios') }}">Usuários</a></li>
@@ -32,8 +35,8 @@
     </nav>
 
     <main class="container">
-        {% for mensagem in get_flashed_messages() %}
-        <p class="alerta">{{ mensagem }}</p>
+        {% for categoria, mensagem in get_flashed_messages(with_categories=true) %}
+        <p class="alerta {{ 'sucesso' if categoria == 'ok' else '' }}">{{ mensagem }}</p>
         {% endfor %}
         {% block content %}{% endblock %}
     </main>

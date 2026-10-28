@@ -10,6 +10,7 @@ fixture outra_barbearia (veja conftest.py).
 
 import pytest
 
+import agenda
 import database
 import models
 import reports
@@ -200,10 +201,15 @@ def test_menu_mostra_a_barbearia_do_usuario(client_anonimo):
 
 SCHEMA_ANTIGO = """
 DROP TABLE IF EXISTS usuarios;
+DROP TABLE IF EXISTS agendamento_servicos;
+DROP TABLE IF EXISTS agendamentos;
+DROP TABLE IF EXISTS bloqueios;
+DROP TABLE IF EXISTS horarios_funcionamento;
 DROP TABLE IF EXISTS atendimentos;
 DROP TABLE IF EXISTS clientes;
 DROP TABLE IF EXISTS servicos;
 DROP TABLE IF EXISTS barbeiros;
+DROP TABLE IF EXISTS unidades;
 DROP TABLE IF EXISTS barbearias;
 CREATE TABLE clientes (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL,
     telefone TEXT, criado_em TEXT DEFAULT (datetime('now')));
@@ -252,12 +258,17 @@ def test_atualizar_banco_antigo_mantem_os_dados_numa_barbearia(banco_antigo):
     assert atendimento["barbeiro"] == "Barbeiro Antigo"
     assert reports.faturamento_total(barbearia["id"]) == pytest.approx(30.0)
     assert models.autenticar("antigo", "senha-antiga")["barbearia_id"] == barbearia["id"]
+    # A agenda chega pronta para usar: unidade "Principal" com o horário padrão.
+    (unidade,) = agenda.listar_unidades(barbearia["id"])
+    assert unidade["nome"] == "Principal"
+    assert agenda.horarios_da_unidade(barbearia["id"], unidade["id"])[0] == [("09:00", "19:00")]
 
 
 def test_atualizar_banco_pode_rodar_de_novo(banco_antigo):
     database.atualizar_banco()
     database.atualizar_banco()
     assert len(models.listar_barbearias()) == 1
+    assert len(agenda.listar_unidades(models.listar_barbearias()[0]["id"])) == 1
     assert len(models.listar_clientes(1)) == 1
 
 

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>🏠 Editar Unidade</h2>
+
+<div class="card">
+    <h3>{{ unidade.nome }}</h3>
+    <form method="POST" action="{{ url_for('editar_unidade', unidade_id=unidade.id) }}" class="form-largo">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="nome">Nome:</label>
+        <input type="text" id="nome" name="nome" value="{{ unidade.nome }}" required>
+
+        <label for="endereco">Endereço:</label>
+        <input type="text" id="endereco" name="endereco" value="{{ unidade.endereco or '' }}">
+
+        <h4>Horário de funcionamento</h4>
+        <p class="dica">Deixe em branco o dia em que a unidade fecha. Use a
+            2ª faixa para separar manhã e tarde (o almoço fica no meio).
+            Mudar o horário não desmarca o que já está marcado.</p>
+        <table class="grade-horarios">
+            <thead>
+                <tr><th>Dia</th><th>Abre</th><th>Fecha</th><th>Abre (2ª faixa)</th><th>Fecha (2ª faixa)</th></tr>
+            </thead>
+            <tbody>
+                {% for dia in range(7) %}
+                {% set faixas = horarios[dia] %}
+                <tr>
+                    <td>{{ dias[dia] }}</td>
+                    {% for faixa in (1, 2) %}
+                    {% set atual = faixas[faixa - 1] if faixas|length >= faixa else ('', '') %}
+                    <td><input type="time" name="abre_{{ dia }}_{{ faixa }}" value="{{ atual[0] }}" aria-label="{{ dias[dia] }} abre ({{ faixa }}ª faixa)"></td>
+                    <td><input type="time" name="fecha_{{ dia }}_{{ faixa }}" value="{{ atual[1] }}" aria-label="{{ dias[dia] }} fecha ({{ faixa }}ª faixa)"></td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <button type="submit">Salvar</button>
+    </form>
+    <p><a href="{{ url_for('unidades') }}">Voltar</a></p>
+</div>
+{% endblock %}

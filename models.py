@@ -2,7 +2,7 @@
 models.py
 
 Funções de acesso aos dados (barbearias, clientes, barbeiros, serviços,
-atendimentos e usuários) do Sistema de Gestão de Barbearia.
+atendimentos e usuários) do MeuBarber. A agenda fica em agenda.py.
 
 Cada barbearia só vê os próprios dados: as funções recebem o barbearia_id
 como primeiro argumento e filtram (ou gravam) sempre por ele.
@@ -13,7 +13,8 @@ import time
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from database import get_connection
+import agenda
+from database import criar_unidade_padrao, get_connection
 
 PAPEIS = ("dono", "barbeiro")
 TAMANHO_MINIMO_SENHA = 8
@@ -52,9 +53,10 @@ def buscar_barbearia(barbearia_id):
 
 def criar_barbearia_com_dono(nome, usuario, senha):
     """
-    Cadastra uma barbearia nova junto com o usuário dono dela. Se o usuário
-    não puder ser criado (nome repetido, por exemplo), a barbearia também
-    não é. Retorna o id da barbearia.
+    Cadastra uma barbearia nova junto com o usuário dono dela e a unidade
+    "Principal" (com o horário padrão). Se o usuário não puder ser criado
+    (nome repetido, por exemplo), a barbearia também não é. Retorna o id da
+    barbearia.
     """
     _validar_senha(senha)
     conn = get_connection()
@@ -69,6 +71,7 @@ def criar_barbearia_com_dono(nome, usuario, senha):
             """,
             (barbearia_id, usuario, generate_password_hash(senha)),
         )
+        criar_unidade_padrao(conn, barbearia_id)
         conn.commit()
     finally:
         conn.close()
@@ -88,13 +91,26 @@ def listar_clientes(barbearia_id):
 
 
 def criar_cliente(barbearia_id, nome, telefone=None):
+    """Cadastra um cliente e retorna o id dele."""
     conn = get_connection()
-    conn.execute(
-        "INSERT INTO clientes (barbearia_id, nome, telefone) VALUES (?, ?, ?)",
+    cliente_id = conn.execute(
+        "INSERT INTO clientes (barbearia_id, nome, telefone) VALUES (?, ?, ?) RETURNING id",
         (barbearia_id, nome, telefone),
-    )
+    ).fetchone()[0]
     conn.commit()
     conn.close()
+    return cliente_id
+
+
+def buscar_cliente(barbearia_id, cliente_id):
+    """O cliente, ou None se ele não existir ou for de outra barbearia."""
+    conn = get_connection()
+    cliente = conn.execute(
+        "SELECT * FROM clientes WHERE id = ? AND barbearia_id = ?",
+        (cliente_id, barbearia_id),
+    ).fetchone()
+    conn.close()
+    return cliente
 
 
 # ---------- VALIDAÇÃO ----------
@@ -348,15 +364,18 @@ def criar_atendimento(barbearia_id, cliente_id, barbeiro_id, servico_id, valor_c
                 raise ValueError(f"{nome} {registro_id} está desativado.")
         # VALUES (e não INSERT ... SELECT ?, ...): no PostgreSQL, parâmetros
         # na lista do SELECT viram texto e não entram em colunas numéricas.
+        # Data e hora local da barbearia, como na agenda (o padrão do banco
+        # seria o horário UTC).
         conn.execute(
             """
             INSERT INTO atendimentos
-                (barbearia_id, cliente_id, barbeiro_id, servico_id,
+                (barbearia_id, cliente_id, barbeiro_id, servico_id, data_hora,
                  valor_cobrado, forma_pagamento, comissao_percentual)
-            VALUES (?, ?, ?, ?, ?, ?,
+            VALUES (?, ?, ?, ?, ?, ?, ?,
                     (SELECT comissao_percentual FROM barbeiros WHERE id = ?))
             """,
             (barbearia_id, cliente_id, barbeiro_id, servico_id,
+             agenda.agora().strftime("%Y-%m-%d %H:%M:%S"),
              valor_cobrado, forma_pagamento, barbeiro_id),
         )
         conn.commit()
