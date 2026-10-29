@@ -43,8 +43,17 @@ def buscar_por_slug(slug):
 
 
 def salvar_configuracao(barbearia_id, slug, whatsapp, online_ativo,
-                        cancelamento_horas, limite_por_cliente):
-    """Grava o endereço e as regras do link. ValueError com mensagem se algo não servir."""
+                        cancelamento_horas, limite_por_cliente, nome=None):
+    """
+    Grava o nome da barbearia (se vier), o endereço e as regras do link.
+    ValueError com mensagem se algo não servir.
+    """
+    if nome is not None:
+        nome = nome.strip()
+        if not nome:
+            raise ValueError("O nome da barbearia não pode ficar em branco.")
+        if len(nome) > 80:
+            raise ValueError("O nome da barbearia pode ter até 80 letras.")
     slug = (slug or "").strip().lower()
     if not SLUG_VALIDO.match(slug) or "--" in slug:
         raise ValueError(
@@ -78,6 +87,8 @@ def salvar_configuracao(barbearia_id, slug, whatsapp, online_ativo,
             (slug, whatsapp, 1 if online_ativo else 0, cancelamento_horas,
              limite_por_cliente, barbearia_id),
         )
+        if nome is not None:
+            conn.execute("UPDATE barbearias SET nome = ? WHERE id = ?", (nome, barbearia_id))
         conn.commit()
     finally:
         conn.close()

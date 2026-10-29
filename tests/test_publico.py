@@ -269,12 +269,13 @@ def test_arquivo_de_calendario(client_anonimo, slug):
 
 def test_dono_configura_o_link(client):
     html = _texto(client.post("/configuracoes/link", data={
-        "slug": "ponto-certo", "whatsapp": "71 3311 2040", "online_ativo": "1",
+        "nome": "  Barbearia Ponto Certo ", "slug": "ponto-certo", "whatsapp": "71 3311 2040", "online_ativo": "1",
         "cancelamento_horas": "6", "limite_por_cliente": "3",
     }, follow_redirects=True))
     assert "Link de agendamento salvo" in html
     barbearia = models.buscar_barbearia(BARBEARIA)
     assert barbearia["slug"] == "ponto-certo" and barbearia["whatsapp"] == "(71) 3311-2040"
+    assert barbearia["nome"] == "Barbearia Ponto Certo"
     assert barbearia["cancelamento_horas"] == 6 and barbearia["limite_por_cliente"] == 3
     assert "/b/ponto-certo" in html
 
@@ -310,3 +311,12 @@ def test_qrcode_do_link(client):
 def test_barbeiro_nao_configura_o_link(client_barbeiro):
     assert client_barbeiro.get("/configuracoes/link").status_code == 403
     assert client_barbeiro.get("/configuracoes/link/qrcode.svg").status_code == 403
+
+
+def test_nome_em_branco_e_recusado(client):
+    html = _texto(client.post("/configuracoes/link", data={
+        "nome": "  ", "slug": "barbearia-exemplo", "online_ativo": "1",
+        "cancelamento_horas": "2", "limite_por_cliente": "2",
+    }, follow_redirects=True))
+    assert "não pode ficar em branco" in html
+    assert models.buscar_barbearia(BARBEARIA)["nome"] == "Barbearia Exemplo"

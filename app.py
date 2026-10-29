@@ -1061,6 +1061,7 @@ def configurar_link():
                 request.form.get("online_ativo") == "1",
                 request.form.get("cancelamento_horas", ""),
                 request.form.get("limite_por_cliente", ""),
+                request.form.get("nome"),
             )
         except ValueError as erro:
             flash(str(erro))

@@ -28,9 +28,14 @@
     </section>
 
     <section class="painel">
-        <h2>Regras</h2>
+        <h2>Dados e regras</h2>
         <form method="POST" action="{{ url_for('configurar_link') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="campo">
+                <label for="nome-barbearia">Nome da barbearia</label>
+                <input type="text" id="nome-barbearia" name="nome" value="{{ barbearia.nome }}" maxlength="80" required>
+                <p class="dica">É o nome que o cliente vê no topo da página.</p>
+            </div>
             <label class="opcao-linha">
                 <input type="checkbox" name="online_ativo" value="1" {{ 'checked' if barbearia.online_ativo }}>
                 Aceitar agendamentos pelo link
