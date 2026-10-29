@@ -26,6 +26,27 @@ No menu **Link de agendamento** o dono escolhe o endereço, liga e
 desliga o agendamento online, define o prazo de cancelamento e quantos
 horários futuros cada WhatsApp pode ter, e baixa o QR code para o balcão.
 
+## 💳 Assinatura (cobrança pelo Asaas)
+
+Cada barbearia nova ganha 14 dias grátis. Depois, o dono assina em
+**Assinatura**: informa CPF ou CNPJ e e-mail, o MeuBarber cria a cobrança
+mensal no Asaas e mostra o botão **Pagar agora** (Pix, boleto ou cartão).
+O Asaas avisa o MeuBarber de cada pagamento e o acesso é liberado ou
+suspenso sozinho (3 dias de tolerância no atraso). O dinheiro cai na
+conta do Asaas de quem vende o MeuBarber.
+
+Para ligar:
+
+1. No Asaas: **Integrações → Chave de API**, gere a chave.
+2. No Asaas: **Integrações → Webhooks**, crie um webhook para
+   `https://<seu-site>/webhooks/asaas`, com um token de autenticação
+   (32 caracteres ou mais) e os eventos de cobrança e de assinatura.
+3. No Render (Environment): `ASAAS_API_KEY` = a chave,
+   `ASAAS_WEBHOOK_TOKEN` = o token do passo 2, `PLANO_VALOR` = o preço e,
+   por último, `COBRANCA_ATIVA` = `1`.
+
+Contas criadas antes da cobrança ficam isentas.
+
 ## 🧠 Arquitetura
 
 | Arquivo/Pasta | Responsabilidade |

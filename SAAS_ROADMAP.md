@@ -62,7 +62,10 @@ pelas telas, e rodar `python database.py` **apaga todos os dados**
      comissão de cada atendimento é arredondada antes de somar, o que
      fecha as contas no centavo; a troca de tipo fica para as migrações.
    - Backups automáticos diários com teste de restauração.
-5. **Cobrança da assinatura** — integração com gateway brasileiro
+5. **Cobrança da assinatura** — ~~integração com o Asaas: teste grátis,
+   fatura mensal (Pix, boleto ou cartão), liberação e bloqueio automáticos
+   pelo webhook~~ Feito (falta ligar no Render e emitir nota fiscal).
+   Antes: integração com gateway brasileiro
    (Stripe, Asaas, Pagar.me, Mercado Pago, Iugu): planos, período de teste,
    cobrança recorrente por cartão/Pix/boleto, bloqueio por inadimplência,
    emissão de nota fiscal de serviço.

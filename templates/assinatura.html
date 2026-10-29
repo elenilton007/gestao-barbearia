@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block titulo %}Assinatura{% endblock %}
+
+{% block content %}
+{% set dono = g.usuario.papel == 'dono' %}
+{% set nomes = {'teste': 'Teste grátis', 'ativa': 'Em dia', 'atrasada': 'Pagamento atrasado', 'cancelada': 'Cancelada', 'isenta': 'Conta isenta'} %}
+<div class="conteudo-estreito">
+<header class="cabecalho">
+    <div>
+        <h1>Assinatura</h1>
+        <p>O MeuBarber custa {{ valor|brl }} por mês, para a barbearia inteira: todos os barbeiros, unidades e agendamentos.</p>
+    </div>
+</header>
+
+<section class="painel assinatura-situacao st-{{ situacao.status }}">
+    <h2>{{ nomes.get(situacao.status, situacao.status) }}</h2>
+    {% if situacao.mensagem %}<p>{{ situacao.mensagem }}</p>{% endif %}
+    {% if situacao.status == 'ativa' %}<p>Obrigado. A próxima mensalidade chega pelo Asaas, por e-mail, antes do vencimento.</p>{% endif %}
+    {% if situacao.status == 'isenta' %}<p>Esta conta não é cobrada.</p>{% endif %}
+    {% if not cobranca_ativa %}<p class="dica">A cobrança ainda não foi ligada neste site: por enquanto, todas as contas estão liberadas.</p>{% endif %}
+</section>
+
+{% if not dono %}
+    {% if not situacao.liberado %}
+    <section class="painel"><p>O acesso da barbearia está suspenso. Peça ao dono da conta para regularizar a assinatura.</p></section>
+    {% endif %}
+{% elif situacao.status not in ('isenta',) %}
+    {% if g.barbearia.link_pagamento %}
+    <section class="painel">
+        <h2>Fatura em aberto</h2>
+        <p>No Asaas você escolhe Pix, boleto ou cartão. O acesso é liberado sozinho assim que o pagamento é confirmado.</p>
+        <p style="margin-top: 14px"><a class="botao" href="{{ g.barbearia.link_pagamento }}" target="_blank" rel="noopener noreferrer">Pagar agora</a></p>
+    </section>
+    {% endif %}
+    {% if situacao.status != 'ativa' and not g.barbearia.link_pagamento %}
+    <section class="painel">
+        <h2>Assinar o MeuBarber</h2>
+        <p class="dica" style="margin-bottom: 14px">Os dados vão para o Asaas, que emite a cobrança mensal. {% if situacao.status == 'teste' %}A primeira mensalidade vence no fim do teste grátis: assinar agora não tira nenhum dia.{% endif %}</p>
+        <form method="POST" action="{{ url_for('assinar') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="campo">
+                <label for="documento">CPF ou CNPJ de quem paga</label>
+                <input type="text" id="documento" name="documento" inputmode="numeric" autocomplete="off" required>
+            </div>
+            <div class="campo">
+                <label for="email">E-mail para receber as faturas</label>
+                <input type="email" id="email" name="email" autocomplete="email" required>
+            </div>
+            <button type="submit">Gerar fatura de {{ valor|brl }}</button>
+        </form>
+    </section>
+    {% endif %}
+{% endif %}
+</div>
+{% endblock %}

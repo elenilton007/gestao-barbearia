@@ -37,6 +37,7 @@ from flask import (
 from flask_wtf.csrf import CSRFProtect
 
 import agenda
+import assinatura
 import cadastro
 import database
 import models
@@ -109,7 +110,41 @@ def formatar_data(texto):
 
 @app.context_processor
 def nomes_para_telas():
-    return {"NOMES_PAGAMENTO": NOMES_PAGAMENTO, "NOMES_STATUS": NOMES_STATUS}
+    return {
+        "NOMES_PAGAMENTO": NOMES_PAGAMENTO,
+        "NOMES_STATUS": NOMES_STATUS,
+        "csp_nonce": _nonce(),
+    }
+
+
+# ---------- CABEÇALHOS DE SEGURANÇA ----------
+# Valem para todas as páginas. A política de conteúdo (CSP) só deixa rodar
+# scripts do próprio site e os blocos <script> que levam o nonce do pedido:
+# um texto malicioso salvo num cadastro não consegue virar script.
+
+def _nonce():
+    if "csp_nonce" not in g:
+        g.csp_nonce = secrets.token_urlsafe(16)
+    return g.csp_nonce
+
+
+@app.after_request
+def cabecalhos_de_seguranca(resposta):
+    resposta.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        f"script-src 'self' 'nonce-{_nonce()}'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; font-src 'self'; connect-src 'self'; "
+        "object-src 'none'; base-uri 'self'; form-action 'self'; "
+        "frame-ancestors 'none'"
+    )
+    resposta.headers["X-Frame-Options"] = "DENY"
+    resposta.headers["X-Content-Type-Options"] = "nosniff"
+    resposta.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    resposta.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    if app.config["SESSION_COOKIE_SECURE"]:
+        resposta.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return resposta
 
 
 # ---------- AUTENTICAÇÃO ----------
@@ -154,6 +189,27 @@ def carregar_usuario():
     g.barbearia = models.buscar_barbearia(usuario["barbearia_id"])
 
 
+# Telas que continuam abertas com a assinatura vencida: pagar, sair, trocar
+# senha, as páginas públicas (que se cuidam sozinhas) e o aviso do Asaas.
+LIBERADAS_SEM_ASSINATURA = {
+    "assinatura_pagina", "assinar", "logout", "trocar_senha", "static", "termos",
+    "aviso_asaas", "pagina_publica", "horarios_publicos", "agendar_publico",
+    "horario_publico", "cancelar_publico", "calendario_publico", "privacidade_publica",
+}
+
+
+@app.before_request
+def conferir_assinatura():
+    """Sem assinatura em dia (com COBRANCA_ATIVA=1), só dá para ir pagar."""
+    g.situacao = None
+    if g.get("barbearia") is None:
+        return None
+    g.situacao = assinatura.situacao(g.barbearia)
+    if not g.situacao["liberado"] and request.endpoint not in LIBERADAS_SEM_ASSINATURA:
+        return redirect(url_for("assinatura_pagina"))
+    return None
+
+
 def login_obrigatorio(view):
     @functools.wraps(view)
     def wrapper(*args, **kwargs):
@@ -192,6 +248,11 @@ def login():
         # Bloqueado: nem confere a senha, para não dar chance de adivinhar.
         if models.segundos_de_bloqueio(nome):
             return _login_bloqueado(nome)
+        # Limite por aparelho também: impede testar uma senha comum em
+        # muitos usuários diferentes.
+        if not publico.pode_tentar(f"login:{_ip()}", 30, 15 * 60):
+            flash("Muitas tentativas deste aparelho. Tente de novo em 15 minutos.")
+            return render_template("login.html"), 429
         usuario = models.autenticar(nome, request.form.get("senha", ""))
         if usuario is None:
             models.registrar_falha_login(nome)
@@ -1100,6 +1161,10 @@ def _barbearia_publica(slug):
     barbearia = publico.buscar_por_slug(slug)
     if barbearia is None:
         abort(404)
+    if not assinatura.situacao(barbearia)["liberado"]:
+        # Assinatura vencida: a página aparece como pausada para o cliente.
+        barbearia = dict(barbearia)
+        barbearia["online_ativo"] = 0
     return barbearia
 
 
@@ -1292,6 +1357,50 @@ def cadastrar_barbearia():
 @app.route("/termos")
 def termos():
     return render_template("termos.html")
+
+
+# ---------- ASSINATURA DO MEUBARBER ----------
+
+@app.route("/assinatura")
+@login_obrigatorio
+def assinatura_pagina():
+    return render_template(
+        "assinatura.html",
+        situacao=assinatura.situacao(g.barbearia),
+        valor=assinatura.valor_plano(),
+        cobranca_ativa=assinatura.cobranca_ativa(),
+    )
+
+
+@app.route("/assinatura/assinar", methods=["POST"])
+@somente_dono
+def assinar():
+    try:
+        link = assinatura.assinar(
+            g.barbearia, request.form.get("documento", ""), request.form.get("email", "")
+        )
+    except (ValueError, assinatura.ErroCobranca) as erro:
+        flash(str(erro))
+        return redirect(url_for("assinatura_pagina"))
+    # Volta para a tela da assinatura, que mostra o botão da fatura (um link
+    # comum: a política de segurança não deixa formulário redirecionar para
+    # outro site).
+    flash("Fatura gerada. Clique em Pagar agora e escolha Pix, boleto ou cartão.", "ok")
+    return redirect(url_for("assinatura_pagina"))
+
+
+@app.route("/webhooks/asaas", methods=["POST"])
+@csrf.exempt
+def aviso_asaas():
+    """Avisos de pagamento do Asaas. Sem o token certo, é recusado."""
+    if not assinatura.token_valido(request.headers.get("asaas-access-token")):
+        abort(401)
+    evento = request.get_json(silent=True)
+    if not isinstance(evento, dict):
+        abort(400)
+    resultado = assinatura.processar_evento(evento)
+    app.logger.info("Aviso do Asaas %s: %s", evento.get("event"), resultado)
+    return jsonify({"received": True})
 
 
 if __name__ == "__main__":

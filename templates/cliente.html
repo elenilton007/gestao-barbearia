@@ -28,7 +28,7 @@
         </form>
         {% if g.usuario.papel == 'dono' and not historico and not proximos %}
         <form method="POST" action="{{ url_for('excluir_cliente', cliente_id=cliente.id) }}" style="margin-top: 22px"
-              onsubmit='return confirm({{ ("Excluir " ~ cliente.nome ~ "? Isso não pode ser desfeito.")|tojson }})'>
+              data-confirmar="{{ 'Excluir ' ~ cliente.nome ~ '? Isso não pode ser desfeito.' }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="perigo">Excluir cliente</button>
         </form>

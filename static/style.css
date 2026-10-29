@@ -1225,3 +1225,10 @@ body.publico { background: var(--papel); }
 .primeiros-passos li span { grid-column: 2; color: var(--cinza); font-size: 13.5px; }
 .primeiros-passos li.feito::before { content: "✓"; background: var(--verde); border-color: var(--verde); color: var(--branco); }
 .primeiros-passos li.feito a { color: var(--cinza); text-decoration: line-through; }
+
+/* ---------- ASSINATURA ---------- */
+.assinatura-situacao { border-left: 3px solid var(--latao); }
+.assinatura-situacao.st-ativa, .assinatura-situacao.st-isenta { border-left-color: var(--verde-2); }
+.assinatura-situacao.st-atrasada, .assinatura-situacao.st-cancelada { border-left-color: var(--poste); }
+.assinatura-situacao p + p { margin-top: 8px; }
+.faixa-assinatura a { margin-left: 6px; font-weight: 600; }

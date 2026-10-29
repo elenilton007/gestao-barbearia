@@ -18,6 +18,7 @@
 -- para ela.
 DROP TABLE IF EXISTS tentativas_login;
 DROP TABLE IF EXISTS limites_publicos;
+DROP TABLE IF EXISTS eventos_pagamento;
 DROP TABLE IF EXISTS usuarios;
 DROP TABLE IF EXISTS agendamento_servicos;
 DROP TABLE IF EXISTS agendamentos;

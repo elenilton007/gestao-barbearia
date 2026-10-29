@@ -357,6 +357,37 @@ def _preparar_link_publico(conn):
     )
 
 
+def _preparar_assinatura(conn):
+    """
+    Banco criado antes da cobrança: colunas da assinatura em barbearias e a
+    tabela que evita processar duas vezes o mesmo aviso do Asaas. As
+    barbearias que já existiam ficam isentas (não são cobradas).
+    """
+    colunas = _colunas(conn, "barbearias")
+    novas = "assinatura_status" not in colunas
+    for coluna, definicao in (
+        ("assinatura_status", "TEXT NOT NULL DEFAULT 'teste'"),
+        ("teste_ate", "TEXT"),
+        ("atrasada_desde", "TEXT"),
+        ("asaas_cliente_id", "TEXT"),
+        ("asaas_assinatura_id", "TEXT"),
+        ("link_pagamento", "TEXT"),
+    ):
+        if coluna not in colunas:
+            conn.execute(f"ALTER TABLE barbearias ADD COLUMN {coluna} {definicao}")
+    if novas:
+        conn.execute("UPDATE barbearias SET assinatura_status = 'isenta'")
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS eventos_pagamento (
+            id TEXT PRIMARY KEY,
+            tipo TEXT,
+            recebido_em TEXT DEFAULT (datetime('now'))
+        )
+        """
+    )
+
+
 def _padronizar_telefones(conn):
     """Telefones antigos no formato padrão; os que não dá para entender ficam como estão."""
     for linha in conn.execute(
@@ -391,6 +422,7 @@ def atualizar_banco():
     conn = get_connection()
     _preparar_agenda(conn)
     _preparar_link_publico(conn)
+    _preparar_assinatura(conn)
     _padronizar_telefones(conn)
     conn.commit()
     conn.close()

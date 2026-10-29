@@ -9,7 +9,9 @@ como primeiro argumento e filtram (ou gravam) sempre por ele.
 """
 
 import math
+import os
 import time
+from datetime import timedelta
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -76,6 +78,12 @@ def criar_barbearia_com_dono(nome, usuario, senha):
             (barbearia_id, usuario, generate_password_hash(senha)),
         )
         criar_unidade_padrao(conn, barbearia_id)
+        # Conta nova começa no teste grátis (veja assinatura.py).
+        conn.execute(
+            "UPDATE barbearias SET assinatura_status = 'teste', teste_ate = ? WHERE id = ?",
+            ((agenda.hoje() + timedelta(days=int(os.environ.get("TESTE_DIAS", "14")))).isoformat(),
+             barbearia_id),
+        )
         conn.commit()
     finally:
         conn.close()

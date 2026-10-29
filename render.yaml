@@ -32,3 +32,16 @@ services:
         sync: false
       - key: BARBEARIA_NOME
         sync: false
+      # Cobrança da assinatura pelo Asaas (veja assinatura.py e o README).
+      # A chave e o token são segredos: preenchidos no painel do Render.
+      - key: ASAAS_API_KEY
+        sync: false
+      - key: ASAAS_WEBHOOK_TOKEN
+        sync: false
+      - key: ASAAS_URL
+        value: https://api.asaas.com/v3
+      - key: PLANO_VALOR
+        value: "49.90"
+      # 0 = ninguém é bloqueado; mude para 1 quando o Asaas estiver pronto.
+      - key: COBRANCA_ATIVA
+        value: "0"

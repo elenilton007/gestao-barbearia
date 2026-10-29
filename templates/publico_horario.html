@@ -29,7 +29,7 @@
         <a class="botao" href="{{ url_for('calendario_publico', slug=barbearia.slug, token=agendamento.token) }}">Salvar na agenda do celular</a>
         {% if pode_cancelar %}
         <form method="POST" action="{{ url_for('cancelar_publico', slug=barbearia.slug, token=agendamento.token) }}"
-              onsubmit="return confirm('Cancelar este horário?')">
+              data-confirmar="Cancelar este horário?">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="perigo">Cancelar horário</button>
         </form>

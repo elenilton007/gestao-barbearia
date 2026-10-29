@@ -21,7 +21,7 @@
         <form method="GET" action="{{ url_for('agenda_dia') }}">
             <input type="hidden" name="data" value="{{ dia.isoformat() }}">
             <label for="unidade-filtro" class="so-leitor">Unidade</label>
-            <select id="unidade-filtro" name="unidade" onchange="this.form.submit()">
+            <select id="unidade-filtro" name="unidade" data-enviar-ao-mudar>
                 {% for item_unidade in unidades %}
                 <option value="{{ item_unidade.id }}" {{ 'selected' if unidade and item_unidade.id == unidade.id }}>{{ item_unidade.nome }}</option>
                 {% endfor %}
@@ -359,7 +359,7 @@
                 </form>
                 {% endif %}
                 <form method="POST" action="{{ url_for('cancelar_agendamento', agendamento_id=item.id) }}"
-                      onsubmit='return confirm({{ ("Cancelar o horário de " ~ item.cliente ~ " às " ~ item.hora ~ "?")|tojson }})'>
+                      data-confirmar="{{ 'Cancelar o horário de ' ~ item.cliente ~ ' às ' ~ item.hora ~ '?' }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="voltar" value="{{ voltar }}">
                     <button type="submit" class="perigo">Cancelar horário</button>
@@ -371,7 +371,7 @@
 </dialog>
 {% endfor %}
 
-<script>
+<script nonce="{{ csp_nonce }}">
 (function () {
     // Janelas: botões com data-abrir="id" abrem o <dialog>; data-fechar fecha.
     document.addEventListener("click", function (e) {

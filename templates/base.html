@@ -8,6 +8,7 @@
     <link rel="preload" href="{{ url_for('static', filename='fontes/gloock-latin-400-normal.woff2') }}" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="{{ url_for('static', filename='fontes/figtree-latin-400-normal.woff2') }}" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="{{ url_for('static', filename='app.js') }}" defer></script>
 </head>
 <body>
 {% block corpo %}
@@ -36,6 +37,7 @@
             {{ item('unidades', 'Unidades', ('editar_unidade',)) }}
             {{ item('usuarios', 'Usuários', ('editar_usuario',)) }}
             {{ item('configurar_link', 'Link de agendamento') }}
+            {{ item('assinatura_pagina', 'Assinatura') }}
             {% endif %}
         </ul>
         <div class="conta">
@@ -53,6 +55,9 @@
     </aside>
 
     <main class="principal">
+        {% if g.situacao and g.situacao.mensagem and g.usuario.papel == 'dono' and request.endpoint != 'assinatura_pagina' %}
+        <p class="alerta aviso faixa-assinatura">{{ g.situacao.mensagem }} <a href="{{ url_for('assinatura_pagina') }}">Ver assinatura</a></p>
+        {% endif %}
         {% for categoria, mensagem in get_flashed_messages(with_categories=true) %}
         <p class="alerta {{ {'ok': 'sucesso', 'aviso': 'aviso'}.get(categoria, '') }}" role="{{ 'status' if categoria == 'ok' else 'alert' }}">{{ mensagem }}</p>
         {% endfor %}
