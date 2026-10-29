@@ -621,7 +621,7 @@ def _menos_ocupado(conn, barbearia_id, barbeiro_ids, dia):
 
 
 def criar_agendamento(barbearia_id, unidade_id, cliente_id, servico_ids, dia, hora,
-                      barbeiro_id=None, observacao=None, origem="balcao"):
+                      barbeiro_id=None, observacao=None, origem="balcao", token=None):
     """
     Marca um horário e retorna o id do agendamento. Sem barbeiro_id ("sem
     preferência"), escolhe o barbeiro livre menos ocupado no dia.
@@ -677,11 +677,11 @@ def criar_agendamento(barbearia_id, unidade_id, cliente_id, servico_ids, dia, ho
             """
             INSERT INTO agendamentos
                 (barbearia_id, unidade_id, cliente_id, barbeiro_id,
-                 inicio, fim, origem, observacao)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+                 inicio, fim, origem, observacao, token)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
             """,
             (barbearia_id, unidade_id, cliente_id, escolhido, _texto(inicio),
-             _texto(fim), origem, (observacao or "").strip() or None),
+             _texto(fim), origem, (observacao or "").strip() or None, token),
         ).fetchone()[0]
         for servico in servicos:
             conn.execute(

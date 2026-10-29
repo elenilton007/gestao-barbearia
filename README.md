@@ -14,6 +14,18 @@ Depois de duas décadas gerindo um negócio próprio (fluxo de caixa, comissão 
 - Arquitetura em camadas (banco de dados / regras de negócio / interface)
 - Testes automatizados
 
+## 🔗 Link de agendamento
+
+Cada barbearia tem uma página pública, `https://<seu-site>/b/<endereço>`,
+em que o cliente marca sozinho: serviços, profissional (ou "sem
+preferência"), dia, horário, nome e WhatsApp. O horário aparece na agenda
+marcado como "pelo link". O cliente recebe um link próprio para ver o
+horário, salvar na agenda do celular e cancelar dentro do prazo.
+
+No menu **Link de agendamento** o dono escolhe o endereço, liga e
+desliga o agendamento online, define o prazo de cancelamento e quantos
+horários futuros cada WhatsApp pode ter, e baixa o QR code para o balcão.
+
 ## 🧠 Arquitetura
 
 | Arquivo/Pasta | Responsabilidade |

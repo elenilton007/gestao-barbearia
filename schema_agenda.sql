@@ -88,3 +88,12 @@ CREATE TABLE IF NOT EXISTS agendamento_servicos (
     FOREIGN KEY (agendamento_id) REFERENCES agendamentos (id),
     FOREIGN KEY (servico_id) REFERENCES servicos (id)
 );
+
+-- Limite de pedidos nas páginas públicas (sem login): quantas vezes uma
+-- chave (por exemplo "agendar:<ip>") foi usada na janela que começou em
+-- janela_inicio (segundos desde 1970). Veja publico.py.
+CREATE TABLE IF NOT EXISTS limites_publicos (
+    chave TEXT PRIMARY KEY,
+    contagem INTEGER NOT NULL DEFAULT 0,
+    janela_inicio REAL NOT NULL
+);

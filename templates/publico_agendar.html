@@ -1,0 +1,309 @@
+{% extends "publico_base.html" %}
+
+{% block titulo %}Marcar horário na {{ barbearia.nome }}{% endblock %}
+
+{% block content %}
+{% if not barbearia.online_ativo %}
+<section class="pub-aviso">
+    <h1>Agendamento pelo link pausado</h1>
+    <p>A {{ barbearia.nome }} não está recebendo horários por aqui no momento.
+        {% if barbearia.whatsapp %}Fale direto pelo WhatsApp {{ barbearia.whatsapp }}.{% endif %}</p>
+</section>
+{% elif not unidades or not servicos %}
+<section class="pub-aviso">
+    <h1>Agenda em preparação</h1>
+    <p>A {{ barbearia.nome }} ainda está montando a agenda online. Volte em breve.</p>
+</section>
+{% else %}
+<h1 class="pub-titulo">Marque seu horário</h1>
+<p class="pub-sub">Escolha o serviço, o dia e a hora. Leva menos de um minuto.</p>
+
+{% set varias_unidades = unidades|length > 1 %}
+<form method="POST" action="{{ url_for('agendar_publico', slug=barbearia.slug) }}" id="pub-form" class="pub-form" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="pub-isca" aria-hidden="true">
+        <label for="site">Não preencha</label>
+        <input type="text" id="site" name="site" tabindex="-1" autocomplete="off">
+    </div>
+
+    {% set passo = namespace(n=0) %}
+
+    {% if varias_unidades %}{% set passo.n = passo.n + 1 %}
+    <fieldset class="pub-passo">
+        <legend><span class="pub-num">{{ passo.n }}</span>Unidade</legend>
+        <div class="fichas">
+            {% for unidade in unidades %}
+            <label class="ficha ficha-larga">
+                <input type="radio" name="unidade_id" value="{{ unidade.id }}" {{ 'checked' if loop.first }}>
+                <span>{{ unidade.nome }}{% if unidade.endereco %}<small>{{ unidade.endereco }}</small>{% endif %}</span>
+            </label>
+            {% endfor %}
+        </div>
+    </fieldset>
+    {% else %}
+    <input type="hidden" name="unidade_id" value="{{ unidades[0].id }}">
+    {% endif %}
+
+    {% set passo.n = passo.n + 1 %}
+    <fieldset class="pub-passo">
+        <legend><span class="pub-num">{{ passo.n }}</span>Serviços</legend>
+        <p class="dica">Pode escolher mais de um.</p>
+        <div class="pub-servicos">
+            {% for servico in servicos %}
+            <label class="pub-servico">
+                <input type="checkbox" name="servico_id" value="{{ servico.id }}"
+                       data-nome="{{ servico.nome }}" data-preco="{{ servico.preco }}" data-duracao="{{ servico.duracao_minutos }}">
+                <span class="pub-servico-nome">{{ servico.nome }}</span>
+                <span class="pub-servico-info">{{ servico.duracao_minutos }} min</span>
+                <span class="pub-servico-preco">{{ servico.preco|brl }}</span>
+            </label>
+            {% endfor %}
+        </div>
+    </fieldset>
+
+    {% set passo.n = passo.n + 1 %}
+    <fieldset class="pub-passo">
+        <legend><span class="pub-num">{{ passo.n }}</span>Profissional</legend>
+        <div class="fichas" id="pub-barbeiros">
+            <label class="ficha">
+                <input type="radio" name="barbeiro_id" value="" checked>
+                <span>Sem preferência<small>quem estiver livre</small></span>
+            </label>
+            {% for unidade in unidades %}
+            {% for barbeiro in unidade.barbeiros %}
+            <label class="ficha" data-unidade="{{ unidade.id }}">
+                <input type="radio" name="barbeiro_id" value="{{ barbeiro.id }}">
+                <span>{{ barbeiro.nome }}</span>
+            </label>
+            {% endfor %}
+            {% endfor %}
+        </div>
+    </fieldset>
+
+    {% set passo.n = passo.n + 1 %}
+    <fieldset class="pub-passo">
+        <legend><span class="pub-num">{{ passo.n }}</span>Dia</legend>
+        <div class="pub-dias" id="pub-dias">
+            {% for d in dias %}
+            <label class="pub-dia" data-semana="{{ d.semana }}">
+                <input type="radio" name="data" value="{{ d.data.isoformat() }}">
+                <span><small>{{ 'Hoje' if d.data == hoje else d.curto }}</small><b>{{ d.data.day }}</b><small>{{ meses[d.data.month - 1][:3] }}</small></span>
+            </label>
+            {% endfor %}
+        </div>
+        <details class="pub-outro-dia">
+            <summary>Outro dia</summary>
+            <label for="pub-data-outra" class="so-leitor">Escolha outro dia</label>
+            <input type="date" id="pub-data-outra" min="{{ hoje.isoformat() }}" max="{{ ultimo_dia.isoformat() }}">
+        </details>
+    </fieldset>
+
+    {% set passo.n = passo.n + 1 %}
+    <fieldset class="pub-passo">
+        <legend><span class="pub-num">{{ passo.n }}</span>Horário</legend>
+        <div id="pub-horarios" aria-live="polite">
+            <p class="horarios-aviso">Escolha o serviço e o dia para ver os horários livres.</p>
+        </div>
+    </fieldset>
+
+    {% set passo.n = passo.n + 1 %}
+    <fieldset class="pub-passo">
+        <legend><span class="pub-num">{{ passo.n }}</span>Seus dados</legend>
+        <div class="campo">
+            <label for="nome">Nome</label>
+            <input type="text" id="nome" name="nome" autocomplete="name" required>
+        </div>
+        <div class="campo">
+            <label for="whatsapp">WhatsApp</label>
+            <input type="tel" id="whatsapp" name="whatsapp" autocomplete="tel-national" inputmode="tel" placeholder="(71) 90000-0000" required>
+            <p class="dica">Se você já é cliente, use o mesmo número: o horário entra no seu cadastro.</p>
+        </div>
+        <label class="opcao-linha">
+            <input type="checkbox" name="aceite" value="1" required>
+            <span>Concordo com o uso do meu nome e WhatsApp para este agendamento, como explicado em <a href="{{ url_for('privacidade_publica', slug=barbearia.slug) }}" target="_blank" rel="noopener">como usamos seus dados</a>.</span>
+        </label>
+    </fieldset>
+
+    <div class="pub-resumo" id="pub-resumo">
+        <p id="pub-resumo-texto">Escolha um serviço para começar.</p>
+        <button type="submit" id="pub-confirmar" disabled>Confirmar horário</button>
+    </div>
+</form>
+
+<script>
+(function () {
+    var form = document.getElementById("pub-form");
+    var lista = document.getElementById("pub-horarios");
+    var resumo = document.getElementById("pub-resumo-texto");
+    var confirmar = document.getElementById("pub-confirmar");
+    var outroDia = document.getElementById("pub-data-outra");
+    var unidades = {{ unidades|tojson }};
+    var pedido = 0;
+
+    function valor(nome) {
+        var marcado = form.querySelector('input[name="' + nome + '"]:checked');
+        if (marcado) { return marcado.value; }
+        var campo = form.querySelector('input[name="' + nome + '"][type="hidden"]');
+        return campo ? campo.value : "";
+    }
+
+    function servicos() {
+        return Array.prototype.filter.call(
+            form.querySelectorAll('input[name="servico_id"]'), function (c) { return c.checked; });
+    }
+
+    function reais(n) {
+        return n.toLocaleString("pt-BR", {style: "currency", currency: "BRL"});
+    }
+
+    function unidadeAtual() {
+        var id = Number(valor("unidade_id"));
+        return unidades.filter(function (u) { return u.id === id; })[0] || unidades[0];
+    }
+
+    // Só os barbeiros da unidade escolhida; só os dias em que ela abre.
+    function aplicarUnidade() {
+        var u = unidadeAtual();
+        form.querySelectorAll("#pub-barbeiros [data-unidade]").forEach(function (rotulo) {
+            var mostra = String(u.id) === rotulo.getAttribute("data-unidade");
+            rotulo.hidden = !mostra;
+            if (!mostra) { rotulo.querySelector("input").checked = false; }
+        });
+        if (!valor("barbeiro_id")) { form.querySelector('input[name="barbeiro_id"][value=""]').checked = true; }
+        form.querySelectorAll(".pub-dia").forEach(function (dia) {
+            var aberto = u.dias_abertos.indexOf(Number(dia.getAttribute("data-semana"))) >= 0;
+            var entrada = dia.querySelector("input");
+            entrada.disabled = !aberto;
+            dia.classList.toggle("fechado", !aberto);
+            if (!aberto && entrada.checked) { entrada.checked = false; }
+        });
+        if (!valor("data")) {
+            var primeiro = form.querySelector(".pub-dia input:not([disabled])");
+            if (primeiro) { primeiro.checked = true; }
+        }
+    }
+
+    function aviso(texto) {
+        lista.innerHTML = "";
+        var p = document.createElement("p");
+        p.className = "horarios-aviso";
+        p.textContent = texto;
+        lista.appendChild(p);
+    }
+
+    function periodo(hora) {
+        var h = Number(hora.slice(0, 2));
+        return h < 12 ? "Manhã" : (h < 18 ? "Tarde" : "Noite");
+    }
+
+    function carregarHorarios() {
+        var escolhidos = servicos();
+        var dia = valor("data") || (outroDia && outroDia.value);
+        if (!escolhidos.length) { aviso("Escolha o serviço para ver os horários livres."); atualizarResumo(); return; }
+        if (!dia) { aviso("Escolha o dia."); atualizarResumo(); return; }
+        aviso("Procurando horários livres...");
+        var params = new URLSearchParams({
+            unidade: unidadeAtual().id,
+            data: dia,
+            servicos: escolhidos.map(function (c) { return c.value; }).join(","),
+            barbeiro: valor("barbeiro_id")
+        });
+        var este = ++pedido;
+        fetch("{{ url_for('horarios_publicos', slug=barbearia.slug) }}?" + params.toString())
+            .then(function (r) { return r.json(); })
+            .then(function (resposta) {
+                if (este !== pedido) { return; }
+                if (!resposta.horarios.length) {
+                    aviso(resposta.erro || "Nenhum horário livre neste dia. Tente outro dia ou outro profissional.");
+                    atualizarResumo();
+                    return;
+                }
+                lista.innerHTML = "";
+                var grupos = {};
+                resposta.horarios.forEach(function (h) {
+                    var nome = periodo(h.hora);
+                    if (!grupos[nome]) {
+                        var bloco = document.createElement("div");
+                        bloco.className = "pub-periodo";
+                        var titulo = document.createElement("h3");
+                        titulo.textContent = nome;
+                        var fichas = document.createElement("div");
+                        fichas.className = "fichas horarios";
+                        bloco.appendChild(titulo);
+                        bloco.appendChild(fichas);
+                        lista.appendChild(bloco);
+                        grupos[nome] = fichas;
+                    }
+                    var rotulo = document.createElement("label");
+                    rotulo.className = "ficha";
+                    var entrada = document.createElement("input");
+                    entrada.type = "radio";
+                    entrada.name = "hora";
+                    entrada.value = h.hora;
+                    var texto = document.createElement("span");
+                    texto.textContent = h.hora;
+                    rotulo.appendChild(entrada);
+                    rotulo.appendChild(texto);
+                    grupos[nome].appendChild(rotulo);
+                });
+                atualizarResumo();
+            })
+            .catch(function () { aviso("Não foi possível carregar os horários. Verifique a internet e tente de novo."); });
+    }
+
+    function atualizarResumo() {
+        var escolhidos = servicos();
+        if (!escolhidos.length) { resumo.textContent = "Escolha um serviço para começar."; confirmar.disabled = true; return; }
+        var total = 0, minutos = 0, nomes = [];
+        escolhidos.forEach(function (c) {
+            total += Number(c.getAttribute("data-preco"));
+            minutos += Number(c.getAttribute("data-duracao"));
+            nomes.push(c.getAttribute("data-nome"));
+        });
+        var hora = valor("hora");
+        var dia = valor("data") || (outroDia && outroDia.value);
+        var partes = [nomes.join(" + "), minutos + " min", reais(total)];
+        if (dia && hora) {
+            partes.push(dia.slice(8, 10) + "/" + dia.slice(5, 7) + " às " + hora);
+        }
+        resumo.textContent = partes.join(", ");
+        confirmar.disabled = !(hora && form.nome.value.trim() && form.whatsapp.value.trim() && form.aceite.checked);
+    }
+
+    form.addEventListener("change", function (e) {
+        var nome = e.target.name;
+        if (nome === "unidade_id") { aplicarUnidade(); carregarHorarios(); return; }
+        if (nome === "data") { if (outroDia) { outroDia.value = ""; } carregarHorarios(); return; }
+        if (e.target === outroDia) {
+            form.querySelectorAll('input[name="data"]').forEach(function (r) { r.checked = false; });
+            var ja = form.querySelector('input[name="data"][type="hidden"]');
+            if (!ja) {
+                ja = document.createElement("input");
+                ja.type = "hidden";
+                ja.name = "data";
+                form.appendChild(ja);
+            }
+            ja.value = outroDia.value;
+            carregarHorarios();
+            return;
+        }
+        if (nome === "servico_id" || nome === "barbeiro_id") { carregarHorarios(); return; }
+        atualizarResumo();
+    });
+    form.addEventListener("input", atualizarResumo);
+    form.addEventListener("submit", function () { confirmar.disabled = true; confirmar.textContent = "Marcando..."; });
+
+    // Escolher um dia na faixa apaga o "outro dia" escolhido antes.
+    form.addEventListener("click", function (e) {
+        if (e.target.name === "data" && e.target.type === "radio") {
+            var oculto = form.querySelector('input[name="data"][type="hidden"]');
+            if (oculto) { oculto.remove(); }
+        }
+    });
+
+    aplicarUnidade();
+    atualizarResumo();
+})();
+</script>
+{% endif %}
+{% endblock %}

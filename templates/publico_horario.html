@@ -1,0 +1,45 @@
+{% extends "publico_base.html" %}
+{% block titulo %}Seu horário na {{ barbearia.nome }}{% endblock %}
+{% block robots %}noindex{% endblock %}
+{% block content %}
+<section class="pub-confirmacao st-{{ agendamento.status }}">
+    {% if agendamento.status == 'marcado' %}
+    <h1>{{ 'Horário marcado' if novo else 'Seu horário' }}</h1>
+    {% if novo %}<p class="pub-sub">Guarde este link: é por ele que você vê ou cancela o horário.</p>{% endif %}
+    {% elif agendamento.status == 'cancelado' %}
+    <h1>Horário cancelado</h1>
+    {% elif agendamento.status == 'concluido' %}
+    <h1>Atendimento concluído</h1>
+    <p class="pub-sub">Obrigado pela visita.</p>
+    {% else %}
+    <h1>Horário não realizado</h1>
+    {% endif %}
+
+    <p class="pub-quando">{{ quando }}</p>
+    <ul class="detalhe">
+        <li><span>Serviços</span><b>{{ agendamento.servicos|join(', ') }}</b></li>
+        <li><span>Profissional</span><b>{{ agendamento.barbeiro }}</b></li>
+        <li><span>Valor</span><b>{{ agendamento.total|brl }}</b></li>
+        <li><span>Onde</span><b>{{ unidade.nome }}{% if unidade.endereco %}, {{ unidade.endereco }}{% endif %}</b></li>
+        <li><span>Nome</span><b>{{ agendamento.cliente }}</b></li>
+    </ul>
+
+    {% if agendamento.status == 'marcado' %}
+    <div class="pub-acoes">
+        <a class="botao" href="{{ url_for('calendario_publico', slug=barbearia.slug, token=agendamento.token) }}">Salvar na agenda do celular</a>
+        {% if pode_cancelar %}
+        <form method="POST" action="{{ url_for('cancelar_publico', slug=barbearia.slug, token=agendamento.token) }}"
+              onsubmit="return confirm('Cancelar este horário?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="perigo">Cancelar horário</button>
+        </form>
+        <p class="dica">Dá para cancelar por aqui até {{ prazo.strftime('%d/%m às %H:%M') }}.</p>
+        {% else %}
+        <p class="dica">O prazo para cancelar pelo link já passou. Para mudar, fale com a barbearia.</p>
+        {% endif %}
+    </div>
+    {% else %}
+    <p><a class="botao" href="{{ url_for('pagina_publica', slug=barbearia.slug) }}">Marcar outro horário</a></p>
+    {% endif %}
+</section>
+{% endblock %}

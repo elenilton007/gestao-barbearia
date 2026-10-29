@@ -23,6 +23,7 @@ from datetime import datetime, timedelta
 
 from flask import (
     Flask,
+    Response,
     abort,
     flash,
     g,
@@ -38,6 +39,7 @@ from flask_wtf.csrf import CSRFProtect
 import agenda
 import database
 import models
+import publico
 import reports
 
 DEBUG = os.environ.get("FLASK_DEBUG") == "1"
@@ -65,6 +67,14 @@ app.config["TEMPO_INATIVIDADE"] = 60 * int(
 )
 
 csrf = CSRFProtect(app)
+
+# No Render, o pedido chega por um proxy: ATRAS_DE_PROXY=1 faz o app ler o
+# IP verdadeiro do cliente (X-Forwarded-For), usado no limite de pedidos
+# das páginas públicas, e o https original.
+if os.environ.get("ATRAS_DE_PROXY") == "1":
+    from werkzeug.middleware.proxy_fix import ProxyFix
+
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 
 NOMES_PAGAMENTO = {"dinheiro": "Dinheiro", "cartao": "Cartão", "pix": "Pix"}
 NOMES_STATUS = {"marcado": "Marcado", "concluido": "Concluído",
@@ -1034,6 +1044,213 @@ def ativar_unidade(unidade_id):
     except ValueError as erro:
         flash(str(erro))
     return redirect(url_for("unidades"))
+
+
+# ---------- LINK DE AGENDAMENTO (CONFIGURAÇÃO, SÓ O DONO) ----------
+
+@app.route("/configuracoes/link", methods=["GET", "POST"])
+@somente_dono
+def configurar_link():
+    barbearia_id = barbearia_logada()
+    if request.method == "POST":
+        try:
+            publico.salvar_configuracao(
+                barbearia_id,
+                request.form.get("slug", ""),
+                request.form.get("whatsapp", ""),
+                request.form.get("online_ativo") == "1",
+                request.form.get("cancelamento_horas", ""),
+                request.form.get("limite_por_cliente", ""),
+            )
+        except ValueError as erro:
+            flash(str(erro))
+        else:
+            flash("Link de agendamento salvo.", "ok")
+        return redirect(url_for("configurar_link"))
+    return render_template(
+        "configurar_link.html",
+        barbearia=models.buscar_barbearia(barbearia_id),
+        horas_cancelamento=publico.HORAS_CANCELAMENTO,
+        limites=publico.LIMITES_POR_CLIENTE,
+    )
+
+
+@app.route("/configuracoes/link/qrcode.svg")
+@somente_dono
+def qrcode_do_link():
+    """QR code do link, para imprimir e deixar no balcão ou no espelho."""
+    import io
+
+    import qrcode
+    import qrcode.image.svg
+
+    barbearia = models.buscar_barbearia(barbearia_logada())
+    endereco = url_for("pagina_publica", slug=barbearia["slug"], _external=True)
+    imagem = qrcode.make(endereco, image_factory=qrcode.image.svg.SvgPathImage, border=2)
+    saida = io.BytesIO()
+    imagem.save(saida)
+    return Response(saida.getvalue(), mimetype="image/svg+xml")
+
+
+# ---------- PÁGINAS PÚBLICAS (CLIENTE DA BARBEARIA, SEM LOGIN) ----------
+
+def _barbearia_publica(slug):
+    barbearia = publico.buscar_por_slug(slug)
+    if barbearia is None:
+        abort(404)
+    return barbearia
+
+
+def _ip():
+    return request.remote_addr or "desconhecido"
+
+
+@app.route("/b/<slug>")
+def pagina_publica(slug):
+    barbearia = _barbearia_publica(slug)
+    barbearia_id = barbearia["id"]
+    hoje = agenda.hoje()
+    unidades = agenda.listar_unidades(barbearia_id, somente_ativas=True)
+    dias = [hoje + timedelta(days=i) for i in range(publico.DIAS_NA_FAIXA)]
+    dados_unidades = []
+    for unidade in unidades:
+        horarios = agenda.horarios_da_unidade(barbearia_id, unidade["id"])
+        dados_unidades.append({
+            "id": unidade["id"],
+            "nome": unidade["nome"],
+            "endereco": unidade["endereco"],
+            "dias_abertos": sorted(dia for dia, faixas in horarios.items() if faixas),
+            "barbeiros": [
+                {"id": b["id"], "nome": b["nome"]}
+                for b in agenda.barbeiros_da_unidade(barbearia_id, unidade["id"])
+            ],
+        })
+    return render_template(
+        "publico_agendar.html",
+        barbearia=barbearia,
+        unidades=dados_unidades,
+        servicos=models.listar_servicos(barbearia_id, somente_ativos=True),
+        dias=[{"data": d, "curto": agenda.DIAS_CURTOS[d.weekday()], "semana": d.weekday()}
+              for d in dias],
+        hoje=hoje,
+        ultimo_dia=hoje + timedelta(days=agenda.JANELA_DIAS),
+        meses=agenda.MESES,
+    )
+
+
+@app.route("/b/<slug>/horarios")
+def horarios_publicos(slug):
+    barbearia = _barbearia_publica(slug)
+    if not barbearia["online_ativo"]:
+        return jsonify({"horarios": [], "erro": "Agendamento pelo link pausado."})
+    if not publico.pode_tentar(f"horarios:{_ip()}", 120, 60):
+        return jsonify({"horarios": [], "erro": "Muitas consultas seguidas. Espere um minuto."}), 429
+    try:
+        horarios = agenda.horarios_livres(
+            barbearia["id"],
+            request.args.get("unidade"),
+            request.args.get("data"),
+            [s for s in request.args.get("servicos", "").split(",") if s],
+            request.args.get("barbeiro") or None,
+        )
+    except ValueError as erro:
+        return jsonify({"horarios": [], "erro": str(erro)})
+    # O cliente não precisa saber quais barbeiros estão livres, só o horário.
+    return jsonify({"horarios": [{"hora": h["hora"]} for h in horarios]})
+
+
+@app.route("/b/<slug>/agendar", methods=["POST"])
+def agendar_publico(slug):
+    barbearia = _barbearia_publica(slug)
+    voltar = url_for("pagina_publica", slug=barbearia["slug"])
+    if request.form.get("site"):  # campo escondido: só robô preenche
+        abort(400)
+    if request.form.get("aceite") != "1":
+        flash("Para marcar, confirme que leu como seus dados são usados.")
+        return redirect(voltar)
+    if not publico.pode_tentar(f"agendar:{_ip()}", 10, 60 * 60):
+        flash("Muitos agendamentos seguidos deste aparelho. Tente de novo mais tarde.")
+        return redirect(voltar)
+    try:
+        token = publico.agendar(
+            barbearia,
+            request.form.get("unidade_id"),
+            request.form.getlist("servico_id"),
+            request.form.get("data", ""),
+            request.form.get("hora", ""),
+            request.form.get("barbeiro_id") or None,
+            request.form.get("nome", ""),
+            request.form.get("whatsapp", ""),
+        )
+    except ValueError as erro:
+        flash(str(erro))
+        return redirect(voltar)
+    return redirect(url_for("horario_publico", slug=barbearia["slug"], token=token, novo=1))
+
+
+def _agendamento_publico(slug, token):
+    barbearia = _barbearia_publica(slug)
+    agendamento = publico.buscar_por_token(barbearia["id"], token)
+    if agendamento is None:
+        abort(404)
+    return barbearia, agendamento
+
+
+@app.route("/b/<slug>/horario/<token>")
+def horario_publico(slug, token):
+    barbearia, agendamento = _agendamento_publico(slug, token)
+    inicio = agenda.ler_momento(agendamento["inicio"])
+    unidade = agenda.buscar_unidade(barbearia["id"], agendamento["unidade_id"])
+    return render_template(
+        "publico_horario.html",
+        barbearia=barbearia,
+        agendamento=agendamento,
+        unidade=unidade,
+        quando=(f"{agenda.DIAS_DA_SEMANA[inicio.weekday()]}, {inicio.day} de "
+                f"{agenda.MESES[inicio.month - 1]}, às {agendamento['hora']}"),
+        novo=request.args.get("novo") == "1",
+        pode_cancelar=publico.pode_cancelar(barbearia, agendamento),
+        prazo=publico.prazo_para_cancelar(barbearia, agendamento),
+    )
+
+
+@app.route("/b/<slug>/horario/<token>/cancelar", methods=["POST"])
+def cancelar_publico(slug, token):
+    barbearia, _ = _agendamento_publico(slug, token)
+    try:
+        publico.cancelar(barbearia, token)
+    except ValueError as erro:
+        flash(str(erro))
+    else:
+        flash("Horário cancelado. Se quiser, marque outro.", "ok")
+    return redirect(url_for("horario_publico", slug=barbearia["slug"], token=token))
+
+
+@app.route("/b/<slug>/horario/<token>/calendario.ics")
+def calendario_publico(slug, token):
+    barbearia, agendamento = _agendamento_publico(slug, token)
+    endereco = url_for("horario_publico", slug=barbearia["slug"], token=token, _external=True)
+    return Response(
+        publico.arquivo_calendario(barbearia, agendamento, endereco),
+        mimetype="text/calendar",
+        headers={"Content-Disposition": 'attachment; filename="horario-barbearia.ics"'},
+    )
+
+
+@app.route("/b/<slug>/privacidade")
+def privacidade_publica(slug):
+    return render_template("publico_privacidade.html", barbearia=_barbearia_publica(slug))
+
+
+@app.after_request
+def proteger_paginas_publicas(resposta):
+    # O link do horário do cliente é secreto: não vai para outros sites
+    # nem fica guardado em cache compartilhado.
+    if request.path.startswith("/b/"):
+        resposta.headers["Referrer-Policy"] = "no-referrer"
+        if "/horario/" in request.path:
+            resposta.headers["Cache-Control"] = "no-store"
+    return resposta
 
 
 if __name__ == "__main__":

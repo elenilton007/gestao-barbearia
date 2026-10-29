@@ -18,6 +18,10 @@ services:
         generateValue: true
       - key: COOKIE_SEGURO
         value: "1"
+      # O Render passa os pedidos por um proxy: assim o app enxerga o IP
+      # verdadeiro de quem marca pelo link público (limite contra robôs).
+      - key: ATRAS_DE_PROXY
+        value: "1"
       # Primeiro dono, criado no deploy enquanto o banco não tem nenhum
       # usuário (o plano Free não tem terminal). Depois são ignoradas.
       - key: DONO_USUARIO

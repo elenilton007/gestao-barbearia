@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block titulo %}Link de agendamento{% endblock %}
+
+{% block content %}
+{% set endereco = url_for('pagina_publica', slug=barbearia.slug, _external=True) %}
+<header class="cabecalho">
+    <div>
+        <h1>Link de agendamento</h1>
+        <p>O endereço em que seus clientes marcam sozinhos, a qualquer hora.</p>
+    </div>
+    <a class="botao secundario" href="{{ url_for('pagina_publica', slug=barbearia.slug) }}" target="_blank" rel="noopener">Abrir a página</a>
+</header>
+
+<div class="colunas-2">
+    <section class="painel link-cartao">
+        <h2>{{ 'No ar' if barbearia.online_ativo else 'Pausado' }}</h2>
+        <p class="dica">{{ 'Coloque no Instagram, no Google e no status do WhatsApp.' if barbearia.online_ativo else 'Os clientes veem a página, mas não conseguem marcar. Ligue de novo abaixo.' }}</p>
+        <div class="link-copiar">
+            <input type="text" id="link-endereco" value="{{ endereco }}" readonly aria-label="Endereço do link">
+            <button type="button" class="secundario" data-copiar="link-endereco">Copiar</button>
+        </div>
+        <figure class="qrcode">
+            <img src="{{ url_for('qrcode_do_link') }}" alt="QR code do link de agendamento" width="180" height="180">
+            <figcaption>Imprima e deixe no balcão: o cliente aponta a câmera e marca o próximo corte.
+                <a href="{{ url_for('qrcode_do_link') }}" download="qrcode-agendamento.svg">Baixar QR code</a></figcaption>
+        </figure>
+    </section>
+
+    <section class="painel">
+        <h2>Regras</h2>
+        <form method="POST" action="{{ url_for('configurar_link') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label class="opcao-linha">
+                <input type="checkbox" name="online_ativo" value="1" {{ 'checked' if barbearia.online_ativo }}>
+                Aceitar agendamentos pelo link
+            </label>
+            <div class="campo">
+                <label for="slug">Endereço</label>
+                <div class="prefixo">
+                    <span>{{ url_for('pagina_publica', slug='', _external=True) }}</span>
+                    <input type="text" id="slug" name="slug" value="{{ barbearia.slug }}" pattern="[a-z0-9][a-z0-9\-]{1,38}[a-z0-9]" autocapitalize="none" required>
+                </div>
+                <p class="dica">Letras minúsculas, números e hífen. Se mudar, o endereço antigo para de funcionar.</p>
+            </div>
+            <div class="campo">
+                <label for="whatsapp">WhatsApp da barbearia</label>
+                <input type="tel" id="whatsapp" name="whatsapp" value="{{ barbearia.whatsapp or '' }}" placeholder="(71) 90000-0000">
+                <p class="dica">Aparece na página para o cliente tirar dúvidas.</p>
+            </div>
+            <div class="grade-campos">
+                <div class="campo">
+                    <label for="cancelamento_horas">Cliente cancela até</label>
+                    <select id="cancelamento_horas" name="cancelamento_horas">
+                        {% for h in horas_cancelamento %}
+                        <option value="{{ h }}" {{ 'selected' if h == barbearia.cancelamento_horas }}>{{ 'a hora do horário' if h == 0 else (h ~ ' hora' ~ ('s' if h > 1 else '') ~ ' antes') }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="campo">
+                    <label for="limite_por_cliente">Horários futuros por cliente</label>
+                    <select id="limite_por_cliente" name="limite_por_cliente">
+                        {% for n in limites %}
+                        <option value="{{ n }}" {{ 'selected' if n == barbearia.limite_por_cliente }}>{{ n }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <p class="dica">O limite evita que alguém ocupe a agenda inteira com um WhatsApp só.</p>
+            <button type="submit">Salvar link</button>
+        </form>
+    </section>
+</div>
+
+<script>
+document.addEventListener("click", function (e) {
+    var botao = e.target.closest("[data-copiar]");
+    if (!botao) { return; }
+    var campo = document.getElementById(botao.getAttribute("data-copiar"));
+    campo.select();
+    var feito = function () { botao.textContent = "Copiado"; setTimeout(function () { botao.textContent = "Copiar"; }, 2000); };
+    if (navigator.clipboard) { navigator.clipboard.writeText(campo.value).then(feito, function () { document.execCommand("copy"); feito(); }); }
+    else { document.execCommand("copy"); feito(); }
+});
+</script>
+{% endblock %}

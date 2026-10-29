@@ -78,8 +78,10 @@ Concorrentes (Trinks, AppBarber, Booksy, Avec etc.) já oferecem:
   ~~Agenda por barbeiro, unidades, horário de funcionamento (com almoço),
   bloqueios, "sem preferência" (pega o barbeiro livre menos ocupado),
   comanda com vários serviços e concluir/faltou/cancelar lançando na
-  gestão.~~ Feito (menus *Agenda* e *Unidades*). Falta o **link público**
-  para o cliente marcar sozinho (próximo passo), horário próprio por
+  gestão.~~ Feito (menus *Agenda* e *Unidades*). ~~**Link público** para o
+  cliente marcar sozinho (`/b/<endereço>`), com cancelamento pelo link,
+  arquivo de calendário, QR code e limites contra abuso~~ Feito (menu
+  *Link de agendamento*). Falta remarcar pelo link, horário próprio por
   barbeiro e visão semanal.
 - **Lembretes por WhatsApp/SMS** (confirmação e redução de faltas).
 - **CRUD completo** — ~~editar/excluir clientes, ficha com histórico,

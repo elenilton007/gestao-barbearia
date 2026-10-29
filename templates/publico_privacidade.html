@@ -1,0 +1,17 @@
+{% extends "publico_base.html" %}
+{% block titulo %}Seus dados, {{ barbearia.nome }}{% endblock %}
+{% block robots %}noindex{% endblock %}
+{% block content %}
+<article class="pub-texto">
+    <h1>Como usamos seus dados</h1>
+    <p>Para marcar seu horário, a {{ barbearia.nome }} guarda o seu <strong>nome</strong>, o seu <strong>WhatsApp</strong> e os horários e serviços que você marcou.</p>
+    <h2>Para que servem</h2>
+    <p>Para reservar o horário, reconhecer você nas próximas visitas e falar com você sobre o horário marcado. Seus dados não são vendidos nem usados para propaganda de outras empresas.</p>
+    <h2>Quem vê</h2>
+    <p>Só a equipe da {{ barbearia.nome }}. O MeuBarber é o sistema que a barbearia usa para guardar a agenda.</p>
+    <h2>Seus direitos</h2>
+    <p>Pela Lei Geral de Proteção de Dados (Lei 13.709/2018), você pode pedir para ver, corrigir ou apagar seus dados.
+        {% if barbearia.whatsapp %}Fale com a barbearia pelo WhatsApp {{ barbearia.whatsapp }}.{% else %}Fale com a barbearia na próxima visita.{% endif %}</p>
+    <p><a class="botao secundario" href="{{ url_for('pagina_publica', slug=barbearia.slug) }}">Voltar para marcar</a></p>
+</article>
+{% endblock %}

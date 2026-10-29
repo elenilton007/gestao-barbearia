@@ -306,6 +306,57 @@ def _preparar_agenda(conn):
         criar_unidade_padrao(conn, linha["id"])
 
 
+# ---------- LINK PÚBLICO ----------
+
+def gerar_slug(conn, nome, ignorar_id=None):
+    """
+    Endereço do link público a partir do nome ("Barbearia Ponto Certo" ->
+    "barbearia-ponto-certo"), com -2, -3... se já existir.
+    """
+    import unicodedata
+
+    texto = unicodedata.normalize("NFKD", nome or "").encode("ascii", "ignore").decode()
+    base = re.sub(r"[^a-z0-9]+", "-", texto.lower()).strip("-")[:40].strip("-") or "barbearia"
+    candidato, numero = base, 2
+    while conn.execute(
+        "SELECT 1 FROM barbearias WHERE slug = ? AND id != ?", (candidato, ignorar_id or 0)
+    ).fetchone():
+        candidato = f"{base[:36]}-{numero}"
+        numero += 1
+    return candidato
+
+
+def _preparar_link_publico(conn):
+    """
+    Banco criado antes do link público: dá a cada barbearia o endereço
+    (slug) e as regras do agendamento online, e a cada agendamento o
+    código (token) do link que o cliente usa para ver e cancelar.
+    """
+    colunas = _colunas(conn, "barbearias")
+    for coluna, definicao in (
+        ("slug", "TEXT"),
+        ("whatsapp", "TEXT"),
+        ("online_ativo", "INTEGER NOT NULL DEFAULT 1"),
+        ("cancelamento_horas", "INTEGER NOT NULL DEFAULT 2"),
+        ("limite_por_cliente", "INTEGER NOT NULL DEFAULT 2"),
+    ):
+        if coluna not in colunas:
+            conn.execute(f"ALTER TABLE barbearias ADD COLUMN {coluna} {definicao}")
+    for linha in conn.execute(
+        "SELECT id, nome FROM barbearias WHERE slug IS NULL ORDER BY id"
+    ).fetchall():
+        conn.execute(
+            "UPDATE barbearias SET slug = ? WHERE id = ?",
+            (gerar_slug(conn, linha["nome"], linha["id"]), linha["id"]),
+        )
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_barbearias_slug ON barbearias (slug)")
+    if "token" not in _colunas(conn, "agendamentos"):
+        conn.execute("ALTER TABLE agendamentos ADD COLUMN token TEXT")
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_agendamentos_token ON agendamentos (token)"
+    )
+
+
 def _padronizar_telefones(conn):
     """Telefones antigos no formato padrão; os que não dá para entender ficam como estão."""
     for linha in conn.execute(
@@ -339,6 +390,7 @@ def atualizar_banco():
     _executar_script("schema_agenda.sql")
     conn = get_connection()
     _preparar_agenda(conn)
+    _preparar_link_publico(conn)
     _padronizar_telefones(conn)
     conn.commit()
     conn.close()

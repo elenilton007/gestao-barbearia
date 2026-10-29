@@ -15,7 +15,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 import agenda
 import telefones
-from database import criar_unidade_padrao, get_connection
+from database import criar_unidade_padrao, gerar_slug, get_connection
 
 PAPEIS = ("dono", "barbeiro")
 TAMANHO_MINIMO_SENHA = 8
@@ -63,7 +63,8 @@ def criar_barbearia_com_dono(nome, usuario, senha):
     conn = get_connection()
     try:
         barbearia_id = conn.execute(
-            "INSERT INTO barbearias (nome) VALUES (?) RETURNING id", (nome,)
+            "INSERT INTO barbearias (nome, slug) VALUES (?, ?) RETURNING id",
+            (nome, gerar_slug(conn, nome)),
         ).fetchone()[0]
         conn.execute(
             """
