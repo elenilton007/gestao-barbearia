@@ -52,7 +52,7 @@ def cobranca(monkeypatch):
 
 @pytest.fixture
 def conta_nova(cobranca, client_anonimo):
-    """Barbearia criada pelo cadastro (começa no teste grátis de 14 dias), já logada."""
+    """Barbearia criada pelo cadastro (começa no teste grátis de 7 dias), já logada."""
     client_anonimo.post("/cadastro", data={
         "nome_barbearia": "Navalha do Bairro", "whatsapp": "71988881234", "usuario": "joao.silva",
         "senha": "senha-forte-1", "confirmacao": "senha-forte-1", "aceite": "1",
@@ -86,12 +86,12 @@ def test_documento_invalido(texto):
 
 # ---------- TESTE GRÁTIS E BLOQUEIO ----------
 
-def test_conta_nova_comeca_no_teste_de_14_dias(conta_nova):
+def test_conta_nova_comeca_no_teste_de_7_dias(conta_nova):
     barbearia = _barbearia(conta_nova.id)
     assert barbearia["assinatura_status"] == "teste"
-    assert barbearia["teste_ate"] == "2030-03-15"
+    assert barbearia["teste_ate"] == "2030-03-08"
     html = conta_nova.client.get("/agenda").get_data(as_text=True)
-    assert "Teste grátis: faltam 14 dias" in html
+    assert "Teste grátis: faltam 7 dias" in html
 
 
 def test_contas_antigas_ficam_isentas():
@@ -143,7 +143,7 @@ def test_assinar_cria_cliente_assinatura_e_mostra_a_fatura(conta_nova, cobranca)
     plano = [c for c in cobranca.chamadas if c[1] == "/subscriptions"][0][2]
     assert plano["value"] == 59.90 and plano["cycle"] == "MONTHLY"
     assert plano["billingType"] == "UNDEFINED"
-    assert plano["nextDueDate"] == "2030-03-15"  # vence no fim do teste: não perde dias
+    assert plano["nextDueDate"] == "2030-03-08"  # vence no fim do teste: não perde dias
     barbearia = _barbearia(conta_nova.id)
     assert barbearia["asaas_cliente_id"] == "cus_1" and barbearia["asaas_assinatura_id"] == "sub_1"
 
@@ -258,3 +258,54 @@ def test_banco_antigo_ganha_colunas_e_fica_isento():
     database.atualizar_banco()
     assert _barbearia(BARBEARIA)["assinatura_status"] == "isenta"
     assert assinatura.processar_evento({"id": "e", "event": "X"}) == "ignorado: barbearia desconhecida"
+
+
+# ---------- PAGAR NO CADASTRO (TESTE_DIAS=0) ----------
+
+@pytest.fixture
+def conta_paga_no_cadastro(cobranca, client_anonimo, monkeypatch):
+    monkeypatch.setenv("TESTE_DIAS", "0")
+    resposta = client_anonimo.post("/cadastro", data={
+        "nome_barbearia": "Corte Fino", "whatsapp": "71988885678", "usuario": "maria.souza",
+        "senha": "senha-forte-1", "confirmacao": "senha-forte-1", "aceite": "1",
+    })
+    dono = models.buscar_usuario_por_nome("maria.souza")
+    return type("Conta", (), {"client": client_anonimo, "id": dono["barbearia_id"], "resposta": resposta})
+
+
+def test_sem_teste_o_cadastro_leva_direto_ao_pagamento(conta_paga_no_cadastro):
+    conta = conta_paga_no_cadastro
+    assert conta.resposta.headers["Location"].endswith("/assinatura")
+    assert _barbearia(conta.id)["assinatura_status"] == "pendente"
+    assert conta.client.get("/agenda").status_code == 302
+    html = conta.client.get("/assinatura").get_data(as_text=True)
+    assert "Aguardando o primeiro pagamento" in html and "Gerar fatura" in html
+
+
+def test_pendente_gera_fatura_para_hoje_e_libera_ao_pagar(conta_paga_no_cadastro, cobranca, client_anonimo):
+    conta = conta_paga_no_cadastro
+    conta.client.post("/assinatura/assinar", data={"documento": CPF_VALIDO, "email": "maria@exemplo.com"})
+    criada = [d for m, c, d in cobranca.chamadas if c == "/subscriptions"][0]
+    assert criada["nextDueDate"] == "2030-03-01"
+    assert "https://www.asaas.com/i/pay_1" in conta.client.get("/assinatura").get_data(as_text=True)
+    _aviso(client_anonimo, {"id": "evt_p", "event": "PAYMENT_CONFIRMED",
+                            "payment": {"id": "pay_1", "subscription": "sub_1"}})
+    assert _barbearia(conta.id)["assinatura_status"] == "ativa"
+    assert conta.client.get("/agenda").status_code == 200
+
+
+def test_pendente_com_fatura_vencida_continua_bloqueado(conta_paga_no_cadastro, cobranca, client_anonimo):
+    conta = conta_paga_no_cadastro
+    conta.client.post("/assinatura/assinar", data={"documento": CPF_VALIDO, "email": "maria@exemplo.com"})
+    _aviso(client_anonimo, {"id": "evt_v", "event": "PAYMENT_OVERDUE",
+                            "payment": {"id": "pay_1", "subscription": "sub_1",
+                                        "invoiceUrl": "https://www.asaas.com/i/pay_9"}})
+    barbearia = _barbearia(conta.id)
+    assert barbearia["assinatura_status"] == "pendente"  # sem os 3 dias de tolerância
+    assert barbearia["link_pagamento"] == "https://www.asaas.com/i/pay_9"
+    assert conta.client.get("/agenda").status_code == 302
+
+
+def test_sem_cobranca_ligada_conta_pendente_usa_normalmente(conta_paga_no_cadastro, monkeypatch):
+    monkeypatch.setenv("COBRANCA_ATIVA", "0")
+    assert conta_paga_no_cadastro.client.get("/agenda").status_code == 200

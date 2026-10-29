@@ -78,10 +78,13 @@ def criar_barbearia_com_dono(nome, usuario, senha):
             (barbearia_id, usuario, generate_password_hash(senha)),
         )
         criar_unidade_padrao(conn, barbearia_id)
-        # Conta nova começa no teste grátis (veja assinatura.py).
+        # Conta nova começa no teste grátis; com TESTE_DIAS=0 ela nasce
+        # "pendente" e só abre depois do primeiro pagamento (veja assinatura.py).
+        dias_teste = int(os.environ.get("TESTE_DIAS", "7"))
         conn.execute(
-            "UPDATE barbearias SET assinatura_status = 'teste', teste_ate = ? WHERE id = ?",
-            ((agenda.hoje() + timedelta(days=int(os.environ.get("TESTE_DIAS", "14")))).isoformat(),
+            "UPDATE barbearias SET assinatura_status = ?, teste_ate = ? WHERE id = ?",
+            ("teste" if dias_teste > 0 else "pendente",
+             (agenda.hoje() + timedelta(days=max(dias_teste, 0))).isoformat(),
              barbearia_id),
         )
         conn.commit()

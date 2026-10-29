@@ -42,6 +42,9 @@ services:
         value: https://api.asaas.com/v3
       - key: PLANO_VALOR
         value: "49.90"
+      # Dias grátis da conta nova; depois trava até pagar (0 = paga no cadastro).
+      - key: TESTE_DIAS
+        value: "7"
       # 0 = ninguém é bloqueado; mude para 1 quando o Asaas estiver pronto.
       - key: COBRANCA_ATIVA
         value: "0"

@@ -1369,6 +1369,10 @@ def cadastrar_barbearia():
             flash(str(erro))
             return render_template("cadastro.html", dados=request.form), 400
         _iniciar_sessao(dono)
+        barbearia = models.buscar_barbearia(dono["barbearia_id"])
+        if not assinatura.situacao(barbearia)["liberado"]:
+            flash("Conta criada. Agora é só pagar a primeira mensalidade para liberar o acesso.", "ok")
+            return redirect(url_for("assinatura_pagina"))
         flash("Conta criada. Siga os primeiros passos abaixo para abrir a agenda.", "ok")
         return redirect(url_for("agenda_dia"))
     return render_template("cadastro.html", dados={})

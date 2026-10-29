@@ -3,14 +3,15 @@
 {% block titulo %}Agenda online e caixa para barbearia{% endblock %}
 
 {% block meta %}
-    <meta name="description" content="Agenda online para barbearia: o cliente marca sozinho pelo link, cada barbeiro tem a sua agenda e o caixa calcula a comissão. Teste grátis por {{ dias }} dias.">
+    <meta name="description" content="Agenda online para barbearia: o cliente marca sozinho pelo link, cada barbeiro tem a sua agenda e o caixa calcula a comissão. {% if dias %}Teste grátis por {{ dias }} dias.{% else %}{{ valor|brl }} por mês, sem fidelidade.{% endif %}">
     <meta property="og:title" content="MeuBarber — a agenda da sua barbearia no celular do cliente">
-    <meta property="og:description" content="Link de agendamento, agenda por barbeiro, caixa do dia e comissão. {{ dias }} dias grátis, sem cartão.">
+    <meta property="og:description" content="Link de agendamento, agenda por barbeiro, caixa do dia e comissão. {% if dias %}{{ dias }} dias grátis, sem cartão.{% else %}{{ valor|brl }} por mês.{% endif %}">
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ url_for('dashboard', _external=True) }}">
 {% endblock %}
 
 {% block corpo %}
+{% set chamada = ('Começar ' ~ dias ~ ' dias grátis') if dias else ('Assinar por ' ~ (valor|brl) ~ '/mês') %}
 {% set whats_link = 'https://wa.me/' ~ whatsapp ~ '?text=' ~ ('Olá! Quero saber mais sobre o MeuBarber.'|urlencode) if whatsapp else '' %}
 <div class="vitrine">
     <header class="vt-topo">
@@ -20,7 +21,7 @@
             <a href="#preco">Preço</a>
             <a href="#perguntas">Dúvidas</a>
             <a href="{{ url_for('login') }}" class="vt-entrar">Entrar</a>
-            <a href="{{ url_for('cadastrar_barbearia') }}" class="botao pequeno vt-cta-topo">Testar grátis</a>
+            <a href="{{ url_for('cadastrar_barbearia') }}" class="botao pequeno vt-cta-topo">{{ 'Testar grátis' if dias else 'Assinar' }}</a>
         </nav>
     </header>
 
@@ -30,10 +31,10 @@
             <h1>Cadeira cheia, sem ficar preso no WhatsApp.</h1>
             <p class="vt-sub">Seu cliente marca o horário sozinho por um link, a qualquer hora. Você vê a agenda de cada barbeiro, fecha o caixa do dia e já sabe a comissão de cada um.</p>
             <div class="vt-acoes">
-                <a href="{{ url_for('cadastrar_barbearia') }}" class="botao vt-cta">Começar {{ dias }} dias grátis</a>
+                <a href="{{ url_for('cadastrar_barbearia') }}" class="botao vt-cta">{{ chamada }}</a>
                 {% if whats_link %}<a href="{{ whats_link }}" class="botao secundario" rel="noopener" target="_blank">Falar no WhatsApp</a>{% endif %}
             </div>
-            <p class="vt-letra">Sem cartão de crédito para testar. Pronto em 1 minuto.</p>
+            <p class="vt-letra">{% if dias %}Sem cartão de crédito para testar. Pronto em 1 minuto.{% else %}Pix, boleto ou cartão. Sem fidelidade e sem taxa de adesão.{% endif %}</p>
         </div>
 
         <div class="vt-celular" aria-hidden="true">
@@ -124,7 +125,7 @@
             <p class="vt-plano-nome">MeuBarber</p>
             <p class="vt-plano-valor">{{ valor|brl }}<span>/mês</span></p>
             <ul>
-                <li>{{ dias }} dias grátis para testar</li>
+                <li>{% if dias %}{{ dias }} dias grátis para testar{% else %}Acesso liberado assim que o pagamento cai{% endif %}</li>
                 <li>Pague por Pix, boleto ou cartão</li>
                 <li>Link de agendamento e QR code</li>
                 <li>Agenda, caixa, comissão e relatórios</li>
@@ -144,10 +145,17 @@
                 <summary>Como o cliente marca o horário?</summary>
                 <p>Pelo link da sua barbearia. Ele escolhe o serviço, o barbeiro e o horário, informa nome e WhatsApp e pronto. Recebe um link para consultar ou desmarcar.</p>
             </details>
+            {% if dias %}
             <details>
                 <summary>O que acontece depois dos {{ dias }} dias grátis?</summary>
                 <p>Você escolhe se quer continuar e paga a mensalidade por Pix, boleto ou cartão. Se não quiser, é só não pagar: nada é cobrado automaticamente durante o teste.</p>
             </details>
+            {% else %}
+            <details>
+                <summary>Quando o acesso é liberado?</summary>
+                <p>Logo depois do primeiro pagamento. No Pix é em instantes; no boleto, quando o banco confirmar, em até 3 dias úteis.</p>
+            </details>
+            {% endif %}
             <details>
                 <summary>E se eu atrasar o pagamento?</summary>
                 <p>Você tem 3 dias de tolerância. Depois disso o painel fica bloqueado até o pagamento, mas os seus dados continuam guardados.</p>
@@ -165,7 +173,7 @@
 
     <section class="vt-final">
         <h2>Abra a agenda da sua barbearia hoje.</h2>
-        <a href="{{ url_for('cadastrar_barbearia') }}" class="botao vt-cta">Começar {{ dias }} dias grátis</a>
+        <a href="{{ url_for('cadastrar_barbearia') }}" class="botao vt-cta">{{ chamada }}</a>
         {% if whats_link %}<p><a href="{{ whats_link }}" rel="noopener" target="_blank">Prefere conversar antes? Chame no WhatsApp.</a></p>{% endif %}
     </section>
 

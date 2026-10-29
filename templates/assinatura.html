@@ -4,7 +4,7 @@
 
 {% block content %}
 {% set dono = g.usuario.papel == 'dono' %}
-{% set nomes = {'teste': 'Teste grátis', 'ativa': 'Em dia', 'atrasada': 'Pagamento atrasado', 'cancelada': 'Cancelada', 'isenta': 'Conta isenta'} %}
+{% set nomes = {'pendente': 'Aguardando o primeiro pagamento', 'teste': 'Teste grátis', 'ativa': 'Em dia', 'atrasada': 'Pagamento atrasado', 'cancelada': 'Cancelada', 'isenta': 'Conta isenta'} %}
 <div class="conteudo-estreito">
 <header class="cabecalho">
     <div>
@@ -17,6 +17,7 @@
     <h2>{{ nomes.get(situacao.status, situacao.status) }}</h2>
     {% if situacao.mensagem %}<p>{{ situacao.mensagem }}</p>{% endif %}
     {% if situacao.status == 'ativa' %}<p>Obrigado. A próxima mensalidade chega pelo Asaas, por e-mail, antes do vencimento.</p>{% endif %}
+    {% if situacao.status == 'pendente' %}<p>Gere a fatura abaixo e pague por Pix, boleto ou cartão. O acesso abre sozinho quando o pagamento é confirmado (no Pix, em instantes).</p>{% endif %}
     {% if situacao.status == 'isenta' %}<p>Esta conta não é cobrada.</p>{% endif %}
     {% if not cobranca_ativa %}<p class="dica">A cobrança ainda não foi ligada neste site: por enquanto, todas as contas estão liberadas.</p>{% endif %}
 </section>

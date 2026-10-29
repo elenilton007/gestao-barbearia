@@ -5,7 +5,7 @@ def test_visitante_ve_a_pagina_de_vendas(client_anonimo):
     resposta = client_anonimo.get("/")
     assert resposta.status_code == 200
     html = resposta.get_data(as_text=True)
-    assert "Começar 14 dias grátis" in html
+    assert "Começar 7 dias grátis" in html
     assert "/cadastro" in html and "/login" in html
     assert "R$ 49,90" in html
     assert 'name="description"' in html
@@ -30,7 +30,7 @@ def test_botao_de_whatsapp_so_com_numero_configurado(client_anonimo, monkeypatch
 
 def test_logado_continua_vendo_o_painel(client):
     html = client.get("/").get_data(as_text=True)
-    assert "Começar 14 dias grátis" not in html
+    assert "Começar 7 dias grátis" not in html
     assert "Sair" in html
 
 
@@ -46,3 +46,11 @@ def test_pagina_de_vendas_respeita_a_csp(client_anonimo):
     html = resposta.get_data(as_text=True)
     assert "<script>" not in html and "onclick" not in html
     assert "frame-ancestors 'none'" in resposta.headers["Content-Security-Policy"]
+
+
+def test_sem_teste_gratis_a_pagina_chama_para_assinar(client_anonimo, monkeypatch):
+    monkeypatch.setenv("TESTE_DIAS", "0")
+    html = client_anonimo.get("/").get_data(as_text=True)
+    assert "Assinar por R$ 49,90/mês" in html
+    assert "dias grátis" not in html
+    assert "Quando o acesso é liberado?" in html

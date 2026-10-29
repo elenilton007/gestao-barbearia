@@ -23,7 +23,7 @@ Configuração (variáveis de ambiente, no Render):
   ASAAS_WEBHOOK_TOKEN       token que o Asaas manda no cabeçalho
                             asaas-access-token de cada aviso
   PLANO_VALOR               mensalidade em reais (padrão 49.90)
-  TESTE_DIAS                dias grátis (padrão 14)
+  TESTE_DIAS                dias grátis (padrão 7; 0 = paga no cadastro)
 """
 
 import hmac
@@ -60,7 +60,8 @@ def valor_plano():
 
 
 def dias_de_teste():
-    return int(os.environ.get("TESTE_DIAS", "14"))
+    """Dias grátis de conta nova. 0 = paga no cadastro para liberar o acesso."""
+    return max(int(os.environ.get("TESTE_DIAS", "7")), 0)
 
 
 def _hoje():
@@ -97,6 +98,9 @@ def situacao(barbearia):
             }
         return {"liberado": False, "status": status, "dias": 0,
                 "mensagem": "O teste grátis terminou. Assine para continuar usando."}
+    if status == "pendente":
+        return {"liberado": False, "status": status, "dias": 0,
+                "mensagem": "Falta só o pagamento para liberar o MeuBarber."}
     if status == "atrasada":
         desde = _ler_data(barbearia["atrasada_desde"]) or hoje
         dias = (desde + timedelta(days=TOLERANCIA_DIAS) - hoje).days
@@ -193,7 +197,7 @@ def assinar(barbearia, documento, email):
         cliente_id = cliente["id"]
         _gravar(barbearia["id"], asaas_cliente_id=cliente_id)
 
-    if barbearia["asaas_assinatura_id"] and barbearia["assinatura_status"] in ("ativa", "atrasada", "teste"):
+    if barbearia["asaas_assinatura_id"] and barbearia["assinatura_status"] in ("ativa", "atrasada", "teste", "pendente"):
         assinatura_id = barbearia["asaas_assinatura_id"]
     else:
         vencimento = _hoje()
@@ -276,10 +280,17 @@ def processar_evento(evento):
             resultado = "ativa"
         elif tipo in EVENTOS_ATRASO:
             link = (evento.get("payment") or {}).get("invoiceUrl")
+            # Quem nunca pagou (pendente) continua bloqueado: a tolerância
+            # de atraso é só para quem já é assinante.
+            conn.execute(
+                "UPDATE barbearias SET link_pagamento = COALESCE(?, link_pagamento) "
+                "WHERE id = ? AND assinatura_status = 'pendente'",
+                (link, barbearia_id),
+            )
             conn.execute(
                 "UPDATE barbearias SET assinatura_status = 'atrasada', "
                 "atrasada_desde = COALESCE(atrasada_desde, ?), link_pagamento = COALESCE(?, link_pagamento) "
-                "WHERE id = ? AND assinatura_status NOT IN ('isenta', 'cancelada')",
+                "WHERE id = ? AND assinatura_status NOT IN ('isenta', 'cancelada', 'pendente')",
                 (_hoje().isoformat(), link, barbearia_id),
             )
             resultado = "atrasada"

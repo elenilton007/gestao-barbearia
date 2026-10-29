@@ -28,7 +28,7 @@ horários futuros cada WhatsApp pode ter, e baixa o QR code para o balcão.
 
 ## 💳 Assinatura (cobrança pelo Asaas)
 
-Cada barbearia nova ganha 14 dias grátis. Depois, o dono assina em
+Cada barbearia nova ganha 7 dias grátis (TESTE_DIAS; 0 = paga no cadastro). Depois, o dono assina em
 **Assinatura**: informa CPF ou CNPJ e e-mail, o MeuBarber cria a cobrança
 mensal no Asaas e mostra o botão **Pagar agora** (Pix, boleto ou cartão).
 O Asaas avisa o MeuBarber de cada pagamento e o acesso é liberado ou
