@@ -358,6 +358,86 @@ def buscar_bloqueio(barbearia_id, bloqueio_id):
     return bloqueio
 
 
+def marcados_no_periodo(barbearia_id, barbeiro_id, inicio, fim):
+    """Horários ainda marcados do barbeiro que batem com o período (para avisar)."""
+    inicio, fim = ler_momento(inicio), ler_momento(fim)
+    conn = get_connection()
+    try:
+        linhas = conn.execute(
+            _SELECT_AGENDAMENTO + """
+            WHERE agendamentos.barbearia_id = ? AND agendamentos.barbeiro_id = ?
+              AND agendamentos.status = 'marcado'
+              AND agendamentos.inicio < ? AND agendamentos.fim > ?
+            ORDER BY agendamentos.inicio
+            """,
+            (barbearia_id, barbeiro_id, _texto(fim), _texto(inicio)),
+        ).fetchall()
+        return _com_servicos(conn, linhas)
+    finally:
+        conn.close()
+
+
+def marcados_fora_do_horario(barbearia_id, unidade_id):
+    """Horários marcados daqui para a frente que ficaram fora do funcionamento da unidade."""
+    conn = get_connection()
+    try:
+        linhas = conn.execute(
+            _SELECT_AGENDAMENTO + """
+            WHERE agendamentos.barbearia_id = ? AND agendamentos.unidade_id = ?
+              AND agendamentos.status = 'marcado' AND agendamentos.inicio >= ?
+            ORDER BY agendamentos.inicio
+            """,
+            (barbearia_id, unidade_id, _texto(agora())),
+        ).fetchall()
+        fora = []
+        for linha in linhas:
+            inicio, fim = ler_momento(linha["inicio"]), ler_momento(linha["fim"])
+            faixas = _faixas_do_dia(conn, barbearia_id, unidade_id, inicio.date())
+            if not any(abre <= inicio and fim <= fecha for abre, fecha in faixas):
+                fora.append(linha)
+        return _com_servicos(conn, fora)
+    finally:
+        conn.close()
+
+
+def proximos_do_cliente(barbearia_id, cliente_id):
+    """Horários ainda marcados do cliente, de agora em diante."""
+    conn = get_connection()
+    try:
+        linhas = conn.execute(
+            _SELECT_AGENDAMENTO + """
+            WHERE agendamentos.barbearia_id = ? AND agendamentos.cliente_id = ?
+              AND agendamentos.status = 'marcado' AND agendamentos.fim > ?
+            ORDER BY agendamentos.inicio
+            """,
+            (barbearia_id, cliente_id, _texto(agora())),
+        ).fetchall()
+        return _com_servicos(conn, linhas)
+    finally:
+        conn.close()
+
+
+def marcado_hoje(barbearia_id, cliente_id, barbeiro_id):
+    """O horário ainda marcado hoje do cliente com o barbeiro, ou None."""
+    dia = hoje()
+    conn = get_connection()
+    try:
+        linha = conn.execute(
+            _SELECT_AGENDAMENTO + """
+            WHERE agendamentos.barbearia_id = ? AND agendamentos.cliente_id = ?
+              AND agendamentos.barbeiro_id = ? AND agendamentos.status = 'marcado'
+              AND agendamentos.inicio >= ? AND agendamentos.inicio < ?
+            ORDER BY agendamentos.inicio
+            """,
+            (barbearia_id, cliente_id, barbeiro_id,
+             _texto(datetime.combine(dia, datetime.min.time())),
+             _texto(datetime.combine(dia + timedelta(days=1), datetime.min.time()))),
+        ).fetchone()
+        return _com_servicos(conn, [linha])[0] if linha else None
+    finally:
+        conn.close()
+
+
 def remover_bloqueio(barbearia_id, bloqueio_id):
     conn = get_connection()
     conn.execute(

@@ -6,8 +6,13 @@
 <header class="cabecalho">
     <div>
         <h1>Clientes</h1>
-        <p>{{ clientes|length }} cliente{{ 's' if clientes|length != 1 }} cadastrado{{ 's' if clientes|length != 1 }}.</p>
+        <p>{% if busca %}{{ clientes|length }} de {{ total }} clientes para “{{ busca }}”.{% else %}{{ clientes|length }} cliente{{ 's' if clientes|length != 1 }} cadastrado{{ 's' if clientes|length != 1 }}.{% endif %}</p>
     </div>
+    <form method="GET" action="{{ url_for('clientes') }}" class="busca" role="search">
+        <label for="busca" class="so-leitor">Buscar cliente</label>
+        <input type="search" id="busca" name="busca" value="{{ busca }}" placeholder="Nome ou WhatsApp">
+        <button type="submit" class="secundario">Buscar</button>
+    </form>
 </header>
 
 <div class="colunas-2">
@@ -35,12 +40,12 @@
                 <tbody>
                     {% for cliente in clientes %}
                     <tr>
-                        <td>{{ cliente.nome }}</td>
+                        <td><a href="{{ url_for('cliente', cliente_id=cliente.id) }}">{{ cliente.nome }}</a></td>
                         <td>{{ cliente.telefone or "" }}</td>
                         <td>{{ cliente.criado_em|data_br|truncate(10, True, '') }}</td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="3" class="vazio">Nenhum cliente ainda. Cadastre ao lado ou na hora de marcar um horário.</td></tr>
+                    <tr><td colspan="3" class="vazio">{% if busca %}Nenhum cliente com “{{ busca }}”. <a href="{{ url_for('clientes') }}">Ver todos</a>{% else %}Nenhum cliente ainda. Cadastre ao lado ou na hora de marcar um horário.{% endif %}</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

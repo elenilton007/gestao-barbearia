@@ -56,8 +56,10 @@ pelas telas, e rodar `python database.py` **apaga todos os dados**
    - ~~Separar o schema dos dados de exemplo~~ Feito (`dados_exemplo.sql`).
      Falta usar migrações versionadas (Alembic) em vez das funções de
      atualização em `database.py`.
-   - Guardar dinheiro como `NUMERIC`/centavos inteiros, não `REAL`
-     (ponto flutuante gera erro de arredondamento em comissões).
+   - Guardar dinheiro como `NUMERIC`/centavos inteiros, não `REAL`.
+     Por ora os valores são arredondados em centavos ao gravar e a
+     comissão de cada atendimento é arredondada antes de somar, o que
+     fecha as contas no centavo; a troca de tipo fica para as migrações.
    - Backups automáticos diários com teste de restauração.
 5. **Cobrança da assinatura** — integração com gateway brasileiro
    (Stripe, Asaas, Pagar.me, Mercado Pago, Iugu): planos, período de teste,
@@ -80,19 +82,20 @@ Concorrentes (Trinks, AppBarber, Booksy, Avec etc.) já oferecem:
   para o cliente marcar sozinho (próximo passo), horário próprio por
   barbeiro e visão semanal.
 - **Lembretes por WhatsApp/SMS** (confirmação e redução de faltas).
-- **CRUD completo** — editar/excluir clientes e atendimentos (barbeiros,
-  serviços e comissões já têm tela).
+- **CRUD completo** — ~~editar/excluir clientes, ficha com histórico,
+  busca e WhatsApp padronizado sem repetição~~ Feito. Falta editar e
+  estornar atendimento.
 - **Comissão congelada no atendimento** — hoje o relatório usa o percentual
   *atual* do barbeiro, então mudar a comissão na tela muda também a dos
   atendimentos antigos. Gravar o percentual em cada atendimento.
-- **Preenchimento automático do valor** a partir do preço do serviço.
+- ~~**Preenchimento automático do valor** a partir do preço do serviço.~~ Feito.
 - **Filtro por período** nos relatórios (hoje somam *tudo* desde sempre) e
   fechamento de comissão por período, com marcação de "pago".
 - **Caixa**: abertura/fechamento, despesas, sangrias, taxas de cartão.
 - Venda de **produtos** e controle de estoque; **pacotes/planos de
   assinatura** do cliente da barbearia (ex.: "clube do corte").
-- Busca e paginação nas listas; histórico por cliente.
-- Interface responsiva para celular (ou PWA).
+- ~~Busca e histórico por cliente~~ Feito. Falta paginação.
+- ~~Interface responsiva para celular~~ Feito (visual "Latão"). Falta PWA.
 - Exportação para PDF/Excel.
 
 ## 🟡 Operação e infraestrutura

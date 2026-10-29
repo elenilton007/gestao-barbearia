@@ -252,6 +252,12 @@ h3 { font-size: 15px; font-weight: 700; margin-bottom: 10px; }
     border-left: 3px solid var(--poste);
 }
 
+.alerta.aviso {
+    background: var(--latao-claro);
+    color: #5E430F;
+    border-left-color: var(--latao);
+}
+
 .alerta.sucesso {
     background: var(--verde-claro);
     color: var(--verde);
@@ -964,4 +970,13 @@ dialog::backdrop { background: rgba(16, 32, 27, 0.45); }
 @media print {
     .lateral, .acoes-topo, .semana, .bloqueios-painel { display: none; }
     .app { display: block; }
+}
+
+/* Busca no cabeçalho das listas */
+.busca { flex-direction: row; align-items: center; gap: 8px; }
+.busca input { width: 260px; }
+
+@media (max-width: 860px) {
+    .busca { width: 100%; }
+    .busca input { width: auto; flex: 1; }
 }

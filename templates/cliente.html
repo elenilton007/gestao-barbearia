@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block titulo %}{{ cliente.nome }}{% endblock %}
+
+{% block content %}
+<a class="voltar" href="{{ url_for('clientes') }}">Voltar para Clientes</a>
+<header class="cabecalho">
+    <div>
+        <h1>{{ cliente.nome }}</h1>
+        <p>Cliente desde {{ cliente.criado_em|data_br|truncate(10, True, '') }}{% if historico %}, {{ historico|length }} atendimento{{ 's' if historico|length > 1 }} e {{ gasto|brl }} no total{% endif %}.</p>
+    </div>
+</header>
+
+<div class="colunas-2">
+    <section class="painel">
+        <h2>Dados</h2>
+        <form method="POST" action="{{ url_for('cliente', cliente_id=cliente.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="campo">
+                <label for="nome">Nome</label>
+                <input type="text" id="nome" name="nome" value="{{ cliente.nome }}" required>
+            </div>
+            <div class="campo">
+                <label for="telefone">WhatsApp</label>
+                <input type="tel" id="telefone" name="telefone" value="{{ cliente.telefone or '' }}" placeholder="(71) 90000-0000">
+            </div>
+            <button type="submit">Salvar alterações</button>
+        </form>
+        {% if g.usuario.papel == 'dono' and not historico and not proximos %}
+        <form method="POST" action="{{ url_for('excluir_cliente', cliente_id=cliente.id) }}" style="margin-top: 22px"
+              onsubmit='return confirm({{ ("Excluir " ~ cliente.nome ~ "? Isso não pode ser desfeito.")|tojson }})'>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="perigo">Excluir cliente</button>
+        </form>
+        {% endif %}
+    </section>
+
+    <div>
+        <section class="painel">
+            <h2>Próximos horários</h2>
+            {% if proximos %}
+            <ul class="detalhe">
+                {% for item in proximos %}
+                <li><span>{{ item.inicio|data_br }} com {{ item.barbeiro }}</span><b>{{ item.servicos|join(', ') }}</b></li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="dica">Nenhum horário marcado.</p>
+            {% endif %}
+        </section>
+
+        <section class="painel">
+            <h2>Histórico</h2>
+            <div class="tabela-rolagem">
+                <table>
+                    <thead><tr><th>Quando</th><th>Serviço</th><th>Barbeiro</th><th class="numero">Valor</th></tr></thead>
+                    <tbody>
+                        {% for a in historico %}
+                        <tr>
+                            <td style="white-space: nowrap">{{ a.data_hora|data_br }}</td>
+                            <td>{{ a.servico }}</td>
+                            <td>{{ a.barbeiro }}</td>
+                            <td class="numero">{{ a.valor_cobrado|brl }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="4" class="vazio">Nenhum atendimento ainda.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}

@@ -34,9 +34,11 @@ def test_cadastrar_cliente_pelo_formulario(client):
     assert "Lucas Mendes" in client.get("/clientes").get_data(as_text=True)
 
 
-def test_cadastrar_cliente_sem_nome_retorna_erro(client):
-    resposta = client.post("/clientes/novo", data={"telefone": "123"})
-    assert resposta.status_code == 400
+def test_cadastrar_cliente_sem_nome_avisa_e_nao_grava(client):
+    antes = len(models.listar_clientes(1))
+    resposta = client.post("/clientes/novo", data={"telefone": "123"}, follow_redirects=True)
+    assert "não pode ficar em branco" in resposta.get_data(as_text=True)
+    assert len(models.listar_clientes(1)) == antes
 
 
 def test_registrar_atendimento_pelo_formulario(client):

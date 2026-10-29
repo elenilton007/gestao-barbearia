@@ -265,18 +265,67 @@ def dashboard():
 @app.route("/clientes")
 @login_obrigatorio
 def clientes():
-    """Lista os clientes da barbearia."""
-    lista = models.listar_clientes(barbearia_logada())
-    return render_template("clientes.html", clientes=lista)
+    """Lista os clientes da barbearia (com busca por nome ou WhatsApp)."""
+    busca = request.args.get("busca", "").strip()
+    return render_template(
+        "clientes.html",
+        clientes=models.listar_clientes(barbearia_logada(), busca),
+        busca=busca,
+        total=len(models.listar_clientes(barbearia_logada())) if busca else None,
+    )
 
 
 @app.route("/clientes/novo", methods=["POST"])
 @login_obrigatorio
 def novo_cliente():
     """Cadastra um novo cliente."""
-    nome = request.form["nome"]
-    telefone = request.form.get("telefone")
-    models.criar_cliente(barbearia_logada(), nome, telefone)
+    try:
+        models.criar_cliente(
+            barbearia_logada(), request.form.get("nome", ""), request.form.get("telefone")
+        )
+    except ValueError as erro:
+        flash(str(erro))
+    return redirect(url_for("clientes"))
+
+
+@app.route("/clientes/<int:cliente_id>", methods=["GET", "POST"])
+@login_obrigatorio
+def cliente(cliente_id):
+    """Ficha do cliente: dados, próximos horários e histórico de atendimentos."""
+    barbearia_id = barbearia_logada()
+    registro = _ou_404(models.buscar_cliente(barbearia_id, cliente_id))
+    if request.method == "POST":
+        try:
+            models.editar_cliente(
+                barbearia_id, cliente_id,
+                request.form.get("nome", ""), request.form.get("telefone"),
+            )
+        except ValueError as erro:
+            flash(str(erro))
+            return redirect(url_for("cliente", cliente_id=cliente_id))
+        flash("Cliente salvo.", "ok")
+        return redirect(url_for("cliente", cliente_id=cliente_id))
+    historico = models.historico_do_cliente(barbearia_id, cliente_id)
+    return render_template(
+        "cliente.html",
+        cliente=registro,
+        historico=historico,
+        gasto=round(sum(a["valor_cobrado"] for a in historico), 2),
+        proximos=agenda.proximos_do_cliente(barbearia_id, cliente_id),
+    )
+
+
+@app.route("/clientes/<int:cliente_id>/excluir", methods=["POST"])
+@somente_dono
+def excluir_cliente(cliente_id):
+    barbearia_id = barbearia_logada()
+    registro = _ou_404(models.buscar_cliente(barbearia_id, cliente_id))
+    try:
+        models.excluir_cliente(barbearia_id, cliente_id)
+    except ValueError as erro:
+        flash(str(erro))
+        return redirect(url_for("cliente", cliente_id=cliente_id))
+    flash(f"Cliente {registro['nome']} excluído.", "ok")
     return redirect(url_for("clientes"))
 
 
@@ -318,6 +367,18 @@ def novo_atendimento():
     valor_cobrado = request.form["valor_cobrado"]
     forma_pagamento = request.form.get("forma_pagamento", "dinheiro")
 
+    # Quem tem horário marcado hoje com o barbeiro é concluído pela agenda;
+    # registrar aqui também contaria o mesmo corte duas vezes no caixa.
+    try:
+        marcado = agenda.marcado_hoje(barbearia_logada(), int(cliente_id), int(barbeiro_id))
+    except (TypeError, ValueError):
+        marcado = None
+    if marcado is not None:
+        flash(
+            f"{marcado['cliente']} tem horário marcado hoje às {marcado['hora']} com "
+            f"{marcado['barbeiro']}. Conclua pela agenda para não contar duas vezes."
+        )
+        return redirect(url_for("agenda_dia", unidade=marcado["unidade_id"]))
     try:
         models.criar_atendimento(
             barbearia_logada(), cliente_id, barbeiro_id, servico_id,
@@ -787,10 +848,14 @@ def novo_agendamento():
         if request.form.get("hora") not in [h["hora"] for h in livres]:
             raise ValueError("Esse horário não está livre. Escolha outro.")
         if cliente_id is None:
-            cliente_id = models.criar_cliente(
-                barbearia_id, novo_nome,
-                request.form.get("novo_cliente_telefone", "").strip() or None,
-            )
+            telefone = request.form.get("novo_cliente_telefone", "").strip() or None
+            existente = models.buscar_cliente_por_telefone(barbearia_id, telefone)
+            if existente is not None:
+                # Mesmo WhatsApp = mesmo cliente: não cria cadastro repetido.
+                cliente_id = existente["id"]
+                flash(f"Esse WhatsApp já era de {existente['nome']}; o horário ficou no cadastro dele.", "aviso")
+            else:
+                cliente_id = models.criar_cliente(barbearia_id, novo_nome, telefone)
         agenda.criar_agendamento(
             barbearia_id, unidade_id, cliente_id, servico_ids, dia,
             request.form.get("hora", ""), barbeiro_id,
@@ -844,14 +909,28 @@ def novo_bloqueio():
     barbeiro_id = barbeiro_logado()
     if barbeiro_id is None:
         barbeiro_id = request.form.get("barbeiro_id", "")
+    inicio, fim = request.form.get("inicio", ""), request.form.get("fim", "")
     try:
-        agenda.criar_bloqueio(
-            barbearia_logada(), barbeiro_id,
-            request.form.get("inicio", ""), request.form.get("fim", ""),
-            request.form.get("motivo"),
+        bloqueio_id = agenda.criar_bloqueio(
+            barbearia_logada(), barbeiro_id, inicio, fim, request.form.get("motivo"),
         )
     except ValueError as erro:
         flash(str(erro))
+        return _voltar_para_agenda()
+    bloqueio = agenda.buscar_bloqueio(barbearia_logada(), bloqueio_id)
+    conflitos = agenda.marcados_no_periodo(
+        barbearia_logada(), bloqueio["barbeiro_id"], bloqueio["inicio"], bloqueio["fim"]
+    )
+    if conflitos:
+        flash(
+            "Bloqueado. Atenção: continuam marcados neste período "
+            + "; ".join(f"{c['cliente']} em {c['inicio'][8:10]}/{c['inicio'][5:7]} às {c['hora']}"
+                        for c in conflitos)
+            + ". Remarque ou cancele com o cliente.",
+            "aviso",
+        )
+    else:
+        flash("Horário bloqueado.", "ok")
     return _voltar_para_agenda()
 
 
@@ -924,7 +1003,18 @@ def editar_unidade(unidade_id):
         except ValueError as erro:
             flash(str(erro))
             return redirect(url_for("editar_unidade", unidade_id=unidade_id))
-        flash("Unidade salva.", "ok")
+        fora = agenda.marcados_fora_do_horario(barbearia_id, unidade_id)
+        if fora:
+            flash(
+                "Unidade salva. Atenção: estes horários marcados ficaram fora do novo "
+                "funcionamento: "
+                + "; ".join(f"{f['cliente']} em {f['inicio'][8:10]}/{f['inicio'][5:7]} às {f['hora']}"
+                            for f in fora)
+                + ".",
+                "aviso",
+            )
+        else:
+            flash("Unidade salva.", "ok")
         return redirect(url_for("unidades"))
     return render_template(
         "editar_unidade.html",

@@ -14,6 +14,7 @@ import time
 from werkzeug.security import check_password_hash, generate_password_hash
 
 import agenda
+import telefones
 from database import criar_unidade_padrao, get_connection
 
 PAPEIS = ("dono", "barbeiro")
@@ -79,27 +80,27 @@ def criar_barbearia_com_dono(nome, usuario, senha):
 
 
 # ---------- CLIENTES ----------
+# O WhatsApp é guardado no formato padrão (telefones.py) e não se repete
+# dentro da mesma barbearia: é por ele que o cliente é reconhecido.
 
-def listar_clientes(barbearia_id):
+def listar_clientes(barbearia_id, busca=None):
+    """Clientes da barbearia por nome; com busca, só os que batem no nome ou no telefone."""
     conn = get_connection()
     clientes = conn.execute(
         "SELECT * FROM clientes WHERE barbearia_id = ? ORDER BY nome",
         (barbearia_id,),
     ).fetchall()
     conn.close()
-    return clientes
-
-
-def criar_cliente(barbearia_id, nome, telefone=None):
-    """Cadastra um cliente e retorna o id dele."""
-    conn = get_connection()
-    cliente_id = conn.execute(
-        "INSERT INTO clientes (barbearia_id, nome, telefone) VALUES (?, ?, ?) RETURNING id",
-        (barbearia_id, nome, telefone),
-    ).fetchone()[0]
-    conn.commit()
-    conn.close()
-    return cliente_id
+    busca = (busca or "").strip()
+    if not busca:
+        return clientes
+    termo = busca.casefold()
+    digitos = telefones.so_digitos(busca)
+    return [
+        c for c in clientes
+        if termo in c["nome"].casefold()
+        or (len(digitos) >= 3 and digitos in telefones.so_digitos(c["telefone"]))
+    ]
 
 
 def buscar_cliente(barbearia_id, cliente_id):
@@ -111,6 +112,107 @@ def buscar_cliente(barbearia_id, cliente_id):
     ).fetchone()
     conn.close()
     return cliente
+
+
+def buscar_cliente_por_telefone(barbearia_id, telefone):
+    """O cliente com esse WhatsApp (em qualquer formato), ou None."""
+    try:
+        telefone = telefones.normalizar(telefone)
+    except ValueError:
+        return None
+    if telefone is None:
+        return None
+    conn = get_connection()
+    cliente = conn.execute(
+        "SELECT * FROM clientes WHERE barbearia_id = ? AND telefone = ? ORDER BY id",
+        (barbearia_id, telefone),
+    ).fetchone()
+    conn.close()
+    return cliente
+
+
+def _validar_cliente(barbearia_id, nome, telefone, cliente_id=None):
+    nome = _validar_nome(nome, "O nome do cliente")
+    telefone = telefones.normalizar(telefone)
+    if telefone is not None:
+        outro = buscar_cliente_por_telefone(barbearia_id, telefone)
+        if outro is not None and outro["id"] != cliente_id:
+            raise ValueError(f"Esse WhatsApp já é do cliente {outro['nome']}.")
+    return nome, telefone
+
+
+def criar_cliente(barbearia_id, nome, telefone=None):
+    """
+    Cadastra um cliente e retorna o id dele. Nome em branco, WhatsApp
+    inválido ou WhatsApp de outro cliente dão ValueError.
+    """
+    nome, telefone = _validar_cliente(barbearia_id, nome, telefone)
+    conn = get_connection()
+    cliente_id = conn.execute(
+        "INSERT INTO clientes (barbearia_id, nome, telefone) VALUES (?, ?, ?) RETURNING id",
+        (barbearia_id, nome, telefone),
+    ).fetchone()[0]
+    conn.commit()
+    conn.close()
+    return cliente_id
+
+
+def editar_cliente(barbearia_id, cliente_id, nome, telefone=None):
+    nome, telefone = _validar_cliente(barbearia_id, nome, telefone, cliente_id)
+    conn = get_connection()
+    conn.execute(
+        "UPDATE clientes SET nome = ?, telefone = ? WHERE id = ? AND barbearia_id = ?",
+        (nome, telefone, cliente_id, barbearia_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def excluir_cliente(barbearia_id, cliente_id):
+    """
+    Apaga um cliente cadastrado por engano. Quem já tem atendimento ou
+    horário marcado não é apagado (o histórico e o caixa dependem dele).
+    """
+    conn = get_connection()
+    try:
+        usado = conn.execute(
+            """
+            SELECT (SELECT COUNT(*) FROM atendimentos WHERE cliente_id = ? AND barbearia_id = ?)
+                 + (SELECT COUNT(*) FROM agendamentos WHERE cliente_id = ? AND barbearia_id = ?)
+            """,
+            (cliente_id, barbearia_id, cliente_id, barbearia_id),
+        ).fetchone()[0]
+        if usado:
+            raise ValueError(
+                "Este cliente tem atendimentos ou horários na agenda e não pode ser "
+                "excluído. Corrija o nome ou o WhatsApp, se precisar."
+            )
+        conn.execute(
+            "DELETE FROM clientes WHERE id = ? AND barbearia_id = ?", (cliente_id, barbearia_id)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def historico_do_cliente(barbearia_id, cliente_id):
+    """Atendimentos do cliente, do mais recente para o mais antigo."""
+    conn = get_connection()
+    atendimentos = conn.execute(
+        """
+        SELECT atendimentos.data_hora, atendimentos.valor_cobrado,
+               atendimentos.forma_pagamento, servicos.nome AS servico,
+               barbeiros.nome AS barbeiro
+        FROM atendimentos
+        JOIN servicos ON servicos.id = atendimentos.servico_id
+        JOIN barbeiros ON barbeiros.id = atendimentos.barbeiro_id
+        WHERE atendimentos.barbearia_id = ? AND atendimentos.cliente_id = ?
+        ORDER BY atendimentos.data_hora DESC, atendimentos.id DESC
+        """,
+        (barbearia_id, cliente_id),
+    ).fetchall()
+    conn.close()
+    return atendimentos
 
 
 # ---------- VALIDAÇÃO ----------
@@ -222,7 +324,7 @@ def definir_barbeiro_ativo(barbearia_id, barbeiro_id, ativo):
 def _validar_servico(nome, preco, duracao_minutos):
     return (
         _validar_nome(nome),
-        _numero(preco, "O preço precisa ser um número maior ou igual a zero.", 0),
+        round(_numero(preco, "O preço precisa ser um número maior ou igual a zero.", 0), 2),
         _numero(
             duracao_minutos,
             "A duração precisa ser um número inteiro de minutos, maior que zero.",
@@ -341,9 +443,9 @@ def criar_atendimento(barbearia_id, cliente_id, barbeiro_id, servico_id, valor_c
         )
     except (TypeError, ValueError):
         raise ValueError("Cliente, barbeiro e serviço inválidos.") from None
-    valor_cobrado = _numero(
+    valor_cobrado = round(_numero(
         valor_cobrado, "O valor cobrado precisa ser um número maior ou igual a zero.", 0
-    )
+    ), 2)
 
     conn = get_connection()
     try:

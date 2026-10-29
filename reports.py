@@ -23,7 +23,7 @@ def faturamento_total(barbearia_id):
         (barbearia_id,),
     ).fetchone()
     conn.close()
-    return resultado["total"]
+    return round(resultado["total"], 2)
 
 
 def comissoes_por_barbeiro(barbearia_id, barbeiro_id=None):
@@ -47,9 +47,14 @@ def comissoes_por_barbeiro(barbearia_id, barbeiro_id=None):
             barbeiros.nome AS barbeiro,
             barbeiros.comissao_percentual,
             COALESCE(SUM(atendimentos.valor_cobrado), 0) AS total_faturado,
-            COALESCE(SUM(
+            -- A comissão de cada atendimento é arredondada para centavos
+            -- antes de somar, como numa folha de pagamento (meio centavo
+            -- arredonda para cima; o 0.000000001 corrige o ponto flutuante,
+            -- em que 16,665 vira 16,66499...).
+            COALESCE(CAST(SUM(ROUND(CAST(
                 atendimentos.valor_cobrado * atendimentos.comissao_percentual / 100
-            ), 0) AS comissao_valor
+                + 0.000000001
+            AS NUMERIC), 2)) AS REAL), 0) AS comissao_valor
         FROM barbeiros
         LEFT JOIN atendimentos
             ON atendimentos.barbeiro_id = barbeiros.id
@@ -67,7 +72,7 @@ def comissoes_por_barbeiro(barbearia_id, barbeiro_id=None):
         relatorio.append({
             "barbeiro_id": linha["barbeiro_id"],
             "barbeiro": linha["barbeiro"],
-            "total_faturado": linha["total_faturado"],
+            "total_faturado": round(linha["total_faturado"], 2),
             "comissao_percentual": linha["comissao_percentual"],
             "comissao_valor": round(linha["comissao_valor"], 2),
         })

@@ -23,7 +23,7 @@
         <label for="menu-alternar" class="menu-botao">Menu</label>
         <ul class="menu">
             {{ item('agenda_dia', 'Agenda') }}
-            {{ item('clientes', 'Clientes') }}
+            {{ item('clientes', 'Clientes', ('cliente',)) }}
             {{ item('atendimentos', 'Atendimentos') }}
             {{ item('dashboard', 'Painel' if g.usuario.papel == 'dono' else 'Minhas comissões') }}
             {% if g.usuario.papel == "dono" %}
@@ -53,7 +53,7 @@
 
     <main class="principal">
         {% for categoria, mensagem in get_flashed_messages(with_categories=true) %}
-        <p class="alerta {{ 'sucesso' if categoria == 'ok' else '' }}" role="{{ 'status' if categoria == 'ok' else 'alert' }}">{{ mensagem }}</p>
+        <p class="alerta {{ {'ok': 'sucesso', 'aviso': 'aviso'}.get(categoria, '') }}" role="{{ 'status' if categoria == 'ok' else 'alert' }}">{{ mensagem }}</p>
         {% endfor %}
         {% block content %}{% endblock %}
     </main>

@@ -25,6 +25,8 @@ import sys
 
 import psycopg
 
+import telefones
+
 DATABASE_PATH = os.path.join(os.path.dirname(__file__), "barbearia.db")
 
 # Erro de restrição (nome de usuário repetido, por exemplo) nos dois bancos.
@@ -304,6 +306,19 @@ def _preparar_agenda(conn):
         criar_unidade_padrao(conn, linha["id"])
 
 
+def _padronizar_telefones(conn):
+    """Telefones antigos no formato padrão; os que não dá para entender ficam como estão."""
+    for linha in conn.execute(
+        "SELECT id, telefone FROM clientes WHERE telefone IS NOT NULL"
+    ).fetchall():
+        try:
+            padrao = telefones.normalizar(linha["telefone"])
+        except ValueError:
+            continue
+        if padrao is not None and padrao != linha["telefone"]:
+            conn.execute("UPDATE clientes SET telefone = ? WHERE id = ?", (padrao, linha["id"]))
+
+
 def atualizar_banco():
     """
     Atualiza um banco antigo sem apagar nada: separa os dados por
@@ -324,6 +339,7 @@ def atualizar_banco():
     _executar_script("schema_agenda.sql")
     conn = get_connection()
     _preparar_agenda(conn)
+    _padronizar_telefones(conn)
     conn.commit()
     conn.close()
 
