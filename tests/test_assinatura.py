@@ -309,3 +309,90 @@ def test_pendente_com_fatura_vencida_continua_bloqueado(conta_paga_no_cadastro, 
 def test_sem_cobranca_ligada_conta_pendente_usa_normalmente(conta_paga_no_cadastro, monkeypatch):
     monkeypatch.setenv("COBRANCA_ATIVA", "0")
     assert conta_paga_no_cadastro.client.get("/agenda").status_code == 200
+
+
+# ---------- ANTECIPAÇÃO DO CARTÃO ----------
+
+def _pagamento_cartao(client, evento_id="evt_c", tipo="PAYMENT_CONFIRMED", forma="CREDIT_CARD"):
+    return _aviso(client, {"id": evento_id, "event": tipo,
+                           "payment": {"id": "pay_c", "subscription": "sub_1", "billingType": forma}})
+
+
+def _com_antecipacao(cobranca, monkeypatch, falhar=False):
+    original = assinatura._chamar
+
+    def chamar(metodo, caminho, dados=None, formulario=False):
+        if caminho == "/anticipations":
+            assert formulario
+            cobranca.chamadas.append((metodo, caminho, dados))
+            if falhar:
+                raise assinatura.ErroCobranca("Limite de antecipação atingido")
+            return {"id": "ant_1", "status": "PENDING"}
+        return original(metodo, caminho, dados)
+
+    monkeypatch.setattr(assinatura, "_chamar", chamar)
+    monkeypatch.setenv("ANTECIPAR_CARTAO", "1")
+
+
+def test_pagamento_de_cartao_pede_antecipacao(conta_nova, cobranca, client_anonimo, monkeypatch):
+    _assinada(conta_nova)
+    _com_antecipacao(cobranca, monkeypatch)
+    _pagamento_cartao(client_anonimo)
+    assert ("POST", "/anticipations", {"payment": "pay_c"}) in cobranca.chamadas
+    assert _barbearia(conta_nova.id)["assinatura_status"] == "ativa"
+
+
+def test_aviso_repetido_nao_antecipa_de_novo(conta_nova, cobranca, client_anonimo, monkeypatch):
+    _assinada(conta_nova)
+    _com_antecipacao(cobranca, monkeypatch)
+    _pagamento_cartao(client_anonimo)
+    _pagamento_cartao(client_anonimo)
+    assert sum(1 for _, c, _ in cobranca.chamadas if c == "/anticipations") == 1
+
+
+@pytest.mark.parametrize("forma, tipo, ligado", [
+    ("PIX", "PAYMENT_CONFIRMED", "1"),
+    ("BOLETO", "PAYMENT_RECEIVED", "1"),
+    ("CREDIT_CARD", "PAYMENT_RECEIVED", "1"),  # cartão já liquidado: nada a antecipar
+    ("CREDIT_CARD", "PAYMENT_CONFIRMED", "0"),
+])
+def test_so_antecipa_cartao_confirmado_com_a_opcao_ligada(conta_nova, cobranca, client_anonimo, monkeypatch, forma, tipo, ligado):
+    _assinada(conta_nova)
+    _com_antecipacao(cobranca, monkeypatch)
+    monkeypatch.setenv("ANTECIPAR_CARTAO", ligado)
+    _pagamento_cartao(client_anonimo, tipo=tipo, forma=forma)
+    assert not any(c == "/anticipations" for _, c, _ in cobranca.chamadas)
+
+
+def test_antecipacao_recusada_nao_atrapalha_o_pagamento(conta_nova, cobranca, client_anonimo, monkeypatch):
+    _assinada(conta_nova)
+    _com_antecipacao(cobranca, monkeypatch, falhar=True)
+    resposta = _pagamento_cartao(client_anonimo)
+    assert resposta.status_code == 200
+    assert _barbearia(conta_nova.id)["assinatura_status"] == "ativa"
+    assert conta_nova.client.get("/agenda").status_code == 200
+
+
+def test_formulario_vai_em_multipart(monkeypatch):
+    enviados = {}
+
+    class Resposta:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return b'{"id": "ant_1"}'
+
+    def abrir(pedido, timeout):
+        enviados["tipo"] = pedido.get_header("Content-type")
+        enviados["corpo"] = pedido.data
+        return Resposta()
+
+    monkeypatch.setenv("ASAAS_API_KEY", "chave")
+    monkeypatch.setattr(assinatura.urllib.request, "urlopen", abrir)
+    assert assinatura._chamar("POST", "/anticipations", {"payment": "pay_9"}, formulario=True) == {"id": "ant_1"}
+    assert enviados["tipo"].startswith("multipart/form-data; boundary=")
+    assert b'name="payment"\r\n\r\npay_9\r\n' in enviados["corpo"]

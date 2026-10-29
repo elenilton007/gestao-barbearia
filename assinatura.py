@@ -24,10 +24,16 @@ Configuração (variáveis de ambiente, no Render):
                             asaas-access-token de cada aviso
   PLANO_VALOR               mensalidade em reais (padrão 49.90)
   TESTE_DIAS                dias grátis (padrão 7; 0 = paga no cadastro)
+  ANTECIPAR_CARTAO=1        pede ao Asaas a antecipação de cada pagamento
+                            de cartão assim que ele é confirmado (o dinheiro
+                            cai em até 2 dias úteis em vez de 32 dias). A
+                            antecipação automática do painel do Asaas é só
+                            para PJ; por aqui funciona também para conta PF.
 """
 
 import hmac
 import json
+import logging
 import os
 import re
 import urllib.error
@@ -140,15 +146,28 @@ def normalizar_documento(texto):
 
 # ---------- ASAAS ----------
 
-def _chamar(metodo, caminho, dados=None):
+def _chamar(metodo, caminho, dados=None, formulario=False):
+    """
+    Chama a API do Asaas. formulario=True manda os campos como
+    multipart/form-data (o pedido de antecipação aceita anexar documentos
+    e é documentado nesse formato); o resto vai em JSON.
+    """
     chave = os.environ.get("ASAAS_API_KEY", "")
     if not chave:
         raise ErroCobranca("A cobrança ainda não foi configurada. Fale com o MeuBarber.")
     url = os.environ.get("ASAAS_URL", "https://api-sandbox.asaas.com/v3").rstrip("/") + caminho
+    tipo = "application/json"
     corpo = json.dumps(dados).encode() if dados is not None else None
+    if formulario and dados is not None:
+        fronteira = "meubarber" + os.urandom(8).hex()
+        tipo = f"multipart/form-data; boundary={fronteira}"
+        corpo = b"".join(
+            f'--{fronteira}\r\nContent-Disposition: form-data; name="{nome}"\r\n\r\n{valor}\r\n'.encode()
+            for nome, valor in dados.items()
+        ) + f"--{fronteira}--\r\n".encode()
     pedido = urllib.request.Request(url, data=corpo, method=metodo, headers={
         "access_token": chave,
-        "Content-Type": "application/json",
+        "Content-Type": tipo,
         "User-Agent": "MeuBarber",
     })
     try:
@@ -249,6 +268,31 @@ def _barbearia_do_evento(conn, evento):
         if linha:
             return linha["id"]
     return None
+
+
+log = logging.getLogger(__name__)
+
+
+def antecipar_cartao(evento):
+    """
+    Com ANTECIPAR_CARTAO=1, pede a antecipação de um pagamento de cartão
+    recém-confirmado. Falha aqui nunca derruba o aviso: o pagamento já foi
+    registrado e o dinheiro só demora mais a cair.
+    """
+    pagamento = evento.get("payment") or {}
+    if (
+        os.environ.get("ANTECIPAR_CARTAO") != "1"
+        or evento.get("event") != "PAYMENT_CONFIRMED"
+        or pagamento.get("billingType") != "CREDIT_CARD"
+        or not pagamento.get("id")
+    ):
+        return "sem antecipação"
+    try:
+        _chamar("POST", "/anticipations", {"payment": pagamento["id"]}, formulario=True)
+        return "antecipação pedida"
+    except ErroCobranca as erro:
+        log.warning("Antecipação do pagamento %s recusada: %s", pagamento["id"], erro)
+        return "antecipação recusada"
 
 
 def processar_evento(evento):

@@ -1430,6 +1430,8 @@ def aviso_asaas():
     if not isinstance(evento, dict):
         abort(400)
     resultado = assinatura.processar_evento(evento)
+    if resultado == "ativa":  # primeira vez que esse pagamento chega
+        resultado += "; " + assinatura.antecipar_cartao(evento)
     app.logger.info("Aviso do Asaas %s: %s", evento.get("event"), resultado)
     return jsonify({"received": True})
 
