@@ -1232,3 +1232,130 @@ body.publico { background: var(--papel); }
 .assinatura-situacao.st-atrasada, .assinatura-situacao.st-cancelada { border-left-color: var(--poste); }
 .assinatura-situacao p + p { margin-top: 8px; }
 .faixa-assinatura a { margin-left: 6px; font-weight: 600; }
+
+/* ---------- PÁGINA DE VENDAS (/) ---------- */
+
+.vitrine { background: var(--papel); overflow-x: hidden; }
+.vitrine section, .vt-topo, .vt-rodape { padding-left: max(20px, calc((100vw - 1120px) / 2)); padding-right: max(20px, calc((100vw - 1120px) / 2)); }
+
+.vt-topo {
+    background: var(--verde);
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding-top: 18px; padding-bottom: 18px;
+}
+.vt-topo .marca, .vt-rodape .marca { margin: 0; padding: 0; font-size: 26px; }
+.vt-topo .marca::after, .vt-rodape .marca::after { width: 28px; margin-top: 6px; }
+.vt-nav { display: flex; align-items: center; gap: 22px; }
+.vt-nav a { color: #C9D7CF; text-decoration: none; font-weight: 500; font-size: 14px; }
+.vt-nav a:hover { color: var(--branco); }
+.vt-nav .vt-cta-topo { background: var(--latao); border-color: var(--latao); color: var(--verde); }
+.vt-nav .vt-cta-topo:hover { background: #D3A652; border-color: #D3A652; color: var(--verde); }
+
+.vt-heroi {
+    background: var(--verde);
+    color: #DCE6E0;
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr);
+    gap: 56px; align-items: center;
+    padding-top: 56px; padding-bottom: 88px;
+    position: relative; overflow: hidden;
+}
+.vt-heroi::after {
+    content: ""; position: absolute; left: -140px; bottom: -160px; width: 340px; height: 340px; border-radius: 50%;
+    background: repeating-linear-gradient(-45deg, rgba(194, 148, 64, 0.18) 0 14px, transparent 14px 34px);
+    pointer-events: none;
+}
+.vt-selo {
+    display: inline-block; font-size: 13px; font-weight: 600; letter-spacing: 0.3px;
+    color: var(--latao); border: 1px solid rgba(194, 148, 64, 0.45); border-radius: 99px; padding: 4px 12px; margin-bottom: 22px;
+}
+.vt-heroi h1 { color: var(--branco); font-size: clamp(38px, 5.4vw, 68px); line-height: 1.02; max-width: 14ch; margin-bottom: 22px; }
+.vt-sub { font-size: 18px; line-height: 1.55; max-width: 46ch; color: #C9D7CF; }
+.vt-acoes { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+.vitrine .vt-cta { background: var(--latao); border-color: var(--latao); color: var(--verde); min-height: 52px; padding: 12px 26px; font-size: 16px; }
+.vitrine .vt-cta:hover { background: #D3A652; border-color: #D3A652; color: var(--verde); }
+.vt-heroi .botao.secundario { background: transparent; color: var(--branco); border-color: rgba(255,255,255,0.35); min-height: 52px; }
+.vt-heroi .botao.secundario:hover { background: rgba(255,255,255,0.08); }
+.vt-letra { font-size: 13px; color: #9FB4A8; margin-top: 14px; }
+
+.vt-celular {
+    justify-self: center; width: 100%; max-width: 290px;
+    background: #0A2A22; border-radius: 34px; padding: 12px;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.08);
+    transform: rotate(2deg); position: relative; z-index: 1;
+}
+.vt-tela { background: var(--papel); border-radius: 24px; padding: 22px 18px; color: var(--tinta); }
+.vt-tela-nome { font-family: var(--serifa); font-size: 21px; color: var(--verde); }
+.vt-tela-rotulo { font-size: 12px; color: var(--cinza); margin: 4px 0 14px; }
+.vt-horas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.vt-horas span { text-align: center; font-size: 13px; font-weight: 600; padding: 8px 0; border-radius: 6px; background: var(--branco); border: 1px solid var(--linha); }
+.vt-horas .ocupado { color: #AAB3AE; text-decoration: line-through; background: var(--linha-suave); border-color: transparent; }
+.vt-horas .escolhido { background: var(--verde); color: var(--branco); border-color: var(--verde); }
+.vt-resumo { display: flex; justify-content: space-between; font-size: 13px; margin: 16px 0 12px; padding-top: 12px; border-top: 1px dashed var(--linha); }
+.vt-tela-botao { display: block; text-align: center; background: var(--latao); color: var(--verde); font-weight: 700; font-size: 14px; padding: 11px; border-radius: 6px; }
+
+.vt-faixa {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px;
+    background: var(--branco); border-bottom: 1px solid var(--linha);
+    padding-top: 28px; padding-bottom: 28px;
+}
+.vt-faixa p { color: var(--cinza); font-size: 14px; }
+.vt-faixa strong { display: block; font-family: var(--serifa); font-weight: 400; font-size: 30px; color: var(--verde); line-height: 1.1; }
+
+.vt-secao { padding-top: 80px; padding-bottom: 8px; }
+.vt-secao h2 { font-size: clamp(28px, 3.4vw, 40px); margin-bottom: 32px; color: var(--verde); }
+
+.vt-passos { list-style: none; counter-reset: passo; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.vt-passos li { counter-increment: passo; background: var(--branco); border: 1px solid var(--linha); border-radius: var(--raio-grande); padding: 26px 24px; }
+.vt-passos li::before { content: counter(passo, decimal-leading-zero); display: block; font-family: var(--serifa); font-size: 34px; color: var(--latao); margin-bottom: 12px; }
+.vt-passos h3, .vt-grade h3 { font-size: 17px; margin-bottom: 8px; }
+.vt-passos p, .vt-grade p { color: var(--cinza); }
+
+.vt-grade { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--linha); border: 1px solid var(--linha); border-radius: var(--raio-grande); overflow: hidden; }
+.vt-grade article { background: var(--branco); padding: 24px 22px; }
+.vt-grade article h3::before { content: ""; display: block; width: 22px; height: 3px; background: var(--latao); margin-bottom: 14px; }
+
+.vt-preco { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 400px); gap: 48px; align-items: center; }
+.vt-preco-texto p { font-size: 18px; color: var(--cinza); max-width: 40ch; }
+.vt-plano { background: var(--verde); color: #DCE6E0; border-radius: 16px; padding: 34px 32px; box-shadow: 0 20px 40px rgba(16, 59, 49, 0.18); }
+.vt-plano-nome { font-weight: 600; color: var(--latao); letter-spacing: 0.4px; text-transform: uppercase; font-size: 13px; }
+.vt-plano-valor { font-family: var(--serifa); font-size: 52px; color: var(--branco); line-height: 1.1; margin: 8px 0 20px; }
+.vt-plano-valor span { font-family: var(--texto); font-size: 16px; color: #9FB4A8; margin-left: 4px; }
+.vt-plano ul { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+.vt-plano li::before { content: "✓"; color: var(--latao); font-weight: 700; margin-right: 10px; }
+.vt-plano .vt-cta { width: 100%; }
+
+.vt-perguntas { display: flex; flex-direction: column; gap: 10px; max-width: 760px; }
+.vt-perguntas details { background: var(--branco); border: 1px solid var(--linha); border-radius: var(--raio); padding: 0 20px; }
+.vt-perguntas summary { cursor: pointer; font-weight: 600; padding: 18px 0; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+.vt-perguntas summary::-webkit-details-marker { display: none; }
+.vt-perguntas summary::after { content: "+"; color: var(--latao); font-size: 22px; line-height: 1; }
+.vt-perguntas details[open] summary::after { content: "–"; }
+.vt-perguntas details p { color: var(--cinza); padding-bottom: 18px; }
+
+.vt-final { margin-top: 88px; background: var(--verde); text-align: center; padding-top: 72px; padding-bottom: 72px; }
+.vt-final h2 { color: var(--branco); font-size: clamp(28px, 3.6vw, 44px); margin-bottom: 26px; }
+.vt-final p { margin-top: 18px; }
+.vt-final p a { color: #C9D7CF; }
+
+.vt-rodape { background: #0A2A22; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-top: 28px; padding-bottom: 28px; flex-wrap: wrap; }
+.vt-rodape nav { display: flex; gap: 22px; flex-wrap: wrap; }
+.vt-rodape nav a { color: #9FB4A8; font-size: 14px; text-decoration: none; }
+.vt-rodape nav a:hover { color: var(--branco); }
+
+@media (max-width: 960px) {
+    .vt-grade { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .vt-heroi { grid-template-columns: minmax(0, 1fr); gap: 48px; padding-top: 36px; padding-bottom: 64px; }
+    .vt-celular { transform: none; }
+    .vt-preco { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+}
+
+@media (max-width: 720px) {
+    .vt-nav a:not(.vt-entrar):not(.vt-cta-topo) { display: none; }
+    .vt-nav { gap: 14px; }
+    .vt-faixa, .vt-passos, .vt-grade { grid-template-columns: minmax(0, 1fr); }
+    .vt-faixa { gap: 16px; }
+    .vt-secao { padding-top: 56px; }
+    .vt-acoes .botao { width: 100%; }
+    .vt-sub { font-size: 16px; }
+}

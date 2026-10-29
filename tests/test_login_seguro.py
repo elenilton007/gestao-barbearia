@@ -63,7 +63,7 @@ def test_bloqueado_nem_a_senha_certa_entra(client_anonimo):
     resposta = _entrar(client_anonimo)
     assert resposta.status_code == 429
     assert "Muitas tentativas" in resposta.get_data(as_text=True)
-    assert client_anonimo.get("/").status_code == 302
+    assert client_anonimo.get("/agenda").status_code == 302
 
 
 def test_bloqueio_e_so_do_usuario_errado(client_anonimo):
@@ -181,7 +181,7 @@ def test_troca_de_senha_encerra_as_outras_sessoes(client):
     logar(outro_aparelho, ID_DONO)
     assert outro_aparelho.get("/").status_code == 200
     _trocar(client)
-    assert outro_aparelho.get("/").status_code == 302
+    assert outro_aparelho.get("/agenda").status_code == 302
     assert client.get("/").status_code == 200
 
 
@@ -209,7 +209,7 @@ def test_sessao_parada_ha_mais_de_30_minutos_expira(client):
     assert resposta.status_code == 302
     assert resposta.headers["Location"].endswith("/login")
     assert "expirou por inatividade" in client.get("/login").get_data(as_text=True)
-    assert client.get("/").status_code == 302  # não volta sozinha
+    assert client.get("/agenda").status_code == 302  # não volta sozinha
 
 
 def test_sessao_em_uso_nao_expira(client):
@@ -231,4 +231,4 @@ def test_sessao_sem_marca_da_senha_vira_anonima(client_anonimo):
     with client_anonimo.session_transaction() as sessao:
         sessao["usuario_id"] = ID_DONO
         sessao["ultimo_acesso"] = time.time()
-    assert client_anonimo.get("/").status_code == 302
+    assert client_anonimo.get("/agenda").status_code == 302

@@ -45,3 +45,6 @@ services:
       # 0 = ninguém é bloqueado; mude para 1 quando o Asaas estiver pronto.
       - key: COBRANCA_ATIVA
         value: "0"
+      # WhatsApp de vendas mostrado na página inicial (ex.: 71988112040).
+      - key: CONTATO_WHATSAPP
+        sync: false

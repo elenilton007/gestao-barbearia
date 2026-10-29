@@ -171,6 +171,8 @@ def carregar_usuario():
     usuario_id = session.get("usuario_id")
     if not usuario_id:
         return
+    # Tinha sessão: se ela cair abaixo, "/" manda para o login, não para a vitrine.
+    g.sessao_caiu = True
     usuario = models.buscar_usuario(usuario_id)
     if (
         usuario is None
@@ -185,6 +187,7 @@ def carregar_usuario():
         flash("Sua sessão expirou por inatividade. Entre de novo.")
         return
     session["ultimo_acesso"] = agora
+    g.sessao_caiu = False
     g.usuario = usuario
     g.barbearia = models.buscar_barbearia(usuario["barbearia_id"])
 
@@ -195,6 +198,7 @@ LIBERADAS_SEM_ASSINATURA = {
     "assinatura_pagina", "assinar", "logout", "trocar_senha", "static", "termos",
     "aviso_asaas", "pagina_publica", "horarios_publicos", "agendar_publico",
     "horario_publico", "cancelar_publico", "calendario_publico", "privacidade_publica",
+    "robots",
 }
 
 
@@ -308,13 +312,29 @@ def trocar_senha():
 
 # ---------- PÁGINAS ----------
 
+def _whatsapp_de_vendas():
+    """Número de vendas (CONTATO_WHATSAPP) só com dígitos, com DDI 55."""
+    digitos = "".join(c for c in os.environ.get("CONTATO_WHATSAPP", "") if c.isdigit())
+    if len(digitos) in (10, 11):
+        digitos = "55" + digitos
+    return digitos if len(digitos) in (12, 13) else ""
+
+
 @app.route("/")
-@login_obrigatorio
 def dashboard():
     """
-    Página inicial. O dono vê o resumo da barbearia inteira; o barbeiro
-    vê só a própria comissão.
+    Quem não entrou vê a página de vendas do MeuBarber. Logado, o dono vê o
+    resumo da barbearia inteira e o barbeiro vê só a própria comissão.
     """
+    if g.usuario is None:
+        if g.get("sessao_caiu"):  # estava logado e a sessão caiu: volta ao login
+            return redirect(url_for("login"))
+        return render_template(
+            "inicio.html",
+            valor=assinatura.valor_plano(),
+            dias=assinatura.dias_de_teste(),
+            whatsapp=_whatsapp_de_vendas(),
+        )
     barbearia_id = barbearia_logada()
     barbeiro_id = barbeiro_logado()
     if barbeiro_id is not None:
@@ -1352,6 +1372,13 @@ def cadastrar_barbearia():
         flash("Conta criada. Siga os primeiros passos abaixo para abrir a agenda.", "ok")
         return redirect(url_for("agenda_dia"))
     return render_template("cadastro.html", dados={})
+
+
+@app.route("/robots.txt")
+def robots():
+    """Buscadores podem ler a página de vendas, o cadastro e os termos; o resto não."""
+    texto = "User-agent: *\nAllow: /$\nAllow: /cadastro\nAllow: /termos\nAllow: /b/\nDisallow: /\n"
+    return app.response_class(texto, mimetype="text/plain")
 
 
 @app.route("/termos")

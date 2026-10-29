@@ -342,7 +342,7 @@ def test_trocar_a_senha_do_barbeiro_encerra_a_sessao_dele(client_anonimo):
     logar(client_anonimo, ID_USUARIO_JOAO)
     assert client_anonimo.get("/").status_code == 200
     models.editar_usuario(BARBEARIA, ID_USUARIO_JOAO, "barbeiro", BARBEIRO_JOAO, "senha-nova-do-joao")
-    assert client_anonimo.get("/").status_code == 302
+    assert client_anonimo.get("/agenda").status_code == 302
 
 
 def test_dono_troca_a_propria_senha_pela_tela_e_continua_logado(client):

@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block titulo %}Agenda online e caixa para barbearia{% endblock %}
+
+{% block meta %}
+    <meta name="description" content="Agenda online para barbearia: o cliente marca sozinho pelo link, cada barbeiro tem a sua agenda e o caixa calcula a comissão. Teste grátis por {{ dias }} dias.">
+    <meta property="og:title" content="MeuBarber — a agenda da sua barbearia no celular do cliente">
+    <meta property="og:description" content="Link de agendamento, agenda por barbeiro, caixa do dia e comissão. {{ dias }} dias grátis, sem cartão.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ url_for('dashboard', _external=True) }}">
+{% endblock %}
+
+{% block corpo %}
+{% set whats_link = 'https://wa.me/' ~ whatsapp ~ '?text=' ~ ('Olá! Quero saber mais sobre o MeuBarber.'|urlencode) if whatsapp else '' %}
+<div class="vitrine">
+    <header class="vt-topo">
+        <a class="marca" href="{{ url_for('dashboard') }}">MeuBarber</a>
+        <nav class="vt-nav" aria-label="Principal">
+            <a href="#como-funciona">Como funciona</a>
+            <a href="#preco">Preço</a>
+            <a href="#perguntas">Dúvidas</a>
+            <a href="{{ url_for('login') }}" class="vt-entrar">Entrar</a>
+            <a href="{{ url_for('cadastrar_barbearia') }}" class="botao pequeno vt-cta-topo">Testar grátis</a>
+        </nav>
+    </header>
+
+    <section class="vt-heroi">
+        <div class="vt-heroi-texto">
+            <p class="vt-selo">Feito por quem tocou barbearia por 20 anos</p>
+            <h1>Cadeira cheia, sem ficar preso no WhatsApp.</h1>
+            <p class="vt-sub">Seu cliente marca o horário sozinho por um link, a qualquer hora. Você vê a agenda de cada barbeiro, fecha o caixa do dia e já sabe a comissão de cada um.</p>
+            <div class="vt-acoes">
+                <a href="{{ url_for('cadastrar_barbearia') }}" class="botao vt-cta">Começar {{ dias }} dias grátis</a>
+                {% if whats_link %}<a href="{{ whats_link }}" class="botao secundario" rel="noopener" target="_blank">Falar no WhatsApp</a>{% endif %}
+            </div>
+            <p class="vt-letra">Sem cartão de crédito para testar. Pronto em 1 minuto.</p>
+        </div>
+
+        <div class="vt-celular" aria-hidden="true">
+            <div class="vt-tela">
+                <p class="vt-tela-nome">Barbearia do Bairro</p>
+                <p class="vt-tela-rotulo">Escolha o horário · Sábado</p>
+                <div class="vt-horas">
+                    <span>09:00</span><span class="ocupado">09:40</span><span>10:20</span>
+                    <span class="ocupado">11:00</span><span class="escolhido">11:40</span><span>13:00</span>
+                    <span>13:40</span><span class="ocupado">14:20</span><span>15:00</span>
+                </div>
+                <div class="vt-resumo">
+                    <span>Corte + barba</span><strong>com Rafael</strong>
+                </div>
+                <span class="vt-tela-botao">Confirmar horário</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="vt-faixa" aria-label="Destaques">
+        <p><strong>24 h</strong> agenda aberta para o cliente</p>
+        <p><strong>0</strong> app para o cliente instalar</p>
+        <p><strong>1 link</strong> para Instagram, WhatsApp e QR code no balcão</p>
+    </section>
+
+    <section class="vt-secao" id="como-funciona">
+        <h2>Como funciona</h2>
+        <ol class="vt-passos">
+            <li>
+                <h3>Cadastre a barbearia</h3>
+                <p>Coloque os barbeiros, os serviços com preço e duração, e o horário de funcionamento.</p>
+            </li>
+            <li>
+                <h3>Divulgue o seu link</h3>
+                <p>Você ganha um endereço próprio e um QR code. Coloque na bio do Instagram, no status e no balcão.</p>
+            </li>
+            <li>
+                <h3>O cliente marca sozinho</h3>
+                <p>Ele escolhe o serviço, o barbeiro (ou "sem preferência") e o horário livre. O horário cai direto na agenda.</p>
+            </li>
+        </ol>
+    </section>
+
+    <section class="vt-secao vt-recursos" aria-labelledby="recursos-titulo">
+        <h2 id="recursos-titulo">O que vem no MeuBarber</h2>
+        <div class="vt-grade">
+            <article>
+                <h3>Link de agendamento</h3>
+                <p>Página da sua barbearia com serviços, preços e horários livres de verdade. Sem marcar dois clientes no mesmo horário.</p>
+            </article>
+            <article>
+                <h3>Agenda por barbeiro</h3>
+                <p>Dia e semana de cada barbeiro, folgas, bloqueios e encaixes do balcão no mesmo lugar.</p>
+            </article>
+            <article>
+                <h3>"Sem preferência" que divide bem</h3>
+                <p>Quando o cliente não escolhe barbeiro, o horário vai para quem está com a agenda mais vazia.</p>
+            </article>
+            <article>
+                <h3>Cancelamento com prazo</h3>
+                <p>O cliente desmarca pelo próprio link até o prazo que você definir, e o horário volta a ficar livre.</p>
+            </article>
+            <article>
+                <h3>Caixa e comissão</h3>
+                <p>Feche o atendimento com os serviços feitos e veja quanto entrou no dia e quanto é de cada barbeiro.</p>
+            </article>
+            <article>
+                <h3>Clientes e histórico</h3>
+                <p>Ficha de cada cliente com os atendimentos, faltas e o WhatsApp, para chamar de volta quem sumiu.</p>
+            </article>
+            <article>
+                <h3>Mais de uma unidade</h3>
+                <p>Tem duas lojas? Cada unidade com o seu horário e a sua equipe, na mesma conta.</p>
+            </article>
+            <article>
+                <h3>Acesso para a equipe</h3>
+                <p>Cada barbeiro entra com o próprio usuário e vê só a agenda e a comissão dele.</p>
+            </article>
+        </div>
+    </section>
+
+    <section class="vt-secao vt-preco" id="preco">
+        <div class="vt-preco-texto">
+            <h2>Um plano, tudo incluído</h2>
+            <p>Sem limite de barbeiros, de clientes ou de agendamentos. Sem taxa de adesão e sem fidelidade.</p>
+        </div>
+        <div class="vt-plano">
+            <p class="vt-plano-nome">MeuBarber</p>
+            <p class="vt-plano-valor">{{ valor|brl }}<span>/mês</span></p>
+            <ul>
+                <li>{{ dias }} dias grátis para testar</li>
+                <li>Pague por Pix, boleto ou cartão</li>
+                <li>Link de agendamento e QR code</li>
+                <li>Agenda, caixa, comissão e relatórios</li>
+            </ul>
+            <a href="{{ url_for('cadastrar_barbearia') }}" class="botao vt-cta">Criar minha barbearia</a>
+        </div>
+    </section>
+
+    <section class="vt-secao" id="perguntas">
+        <h2>Dúvidas comuns</h2>
+        <div class="vt-perguntas">
+            <details>
+                <summary>Preciso instalar alguma coisa?</summary>
+                <p>Não. O MeuBarber abre no navegador do celular ou do computador. O seu cliente também não instala nada: ele só abre o link.</p>
+            </details>
+            <details>
+                <summary>Como o cliente marca o horário?</summary>
+                <p>Pelo link da sua barbearia. Ele escolhe o serviço, o barbeiro e o horário, informa nome e WhatsApp e pronto. Recebe um link para consultar ou desmarcar.</p>
+            </details>
+            <details>
+                <summary>O que acontece depois dos {{ dias }} dias grátis?</summary>
+                <p>Você escolhe se quer continuar e paga a mensalidade por Pix, boleto ou cartão. Se não quiser, é só não pagar: nada é cobrado automaticamente durante o teste.</p>
+            </details>
+            <details>
+                <summary>E se eu atrasar o pagamento?</summary>
+                <p>Você tem 3 dias de tolerância. Depois disso o painel fica bloqueado até o pagamento, mas os seus dados continuam guardados.</p>
+            </details>
+            <details>
+                <summary>Meus dados e os dos meus clientes ficam seguros?</summary>
+                <p>Cada barbearia só enxerga os próprios dados. O acesso é protegido por senha, com bloqueio contra tentativas repetidas, e a conexão é sempre criptografada.</p>
+            </details>
+            <details>
+                <summary>Posso cancelar quando quiser?</summary>
+                <p>Pode. Não tem fidelidade nem multa.</p>
+            </details>
+        </div>
+    </section>
+
+    <section class="vt-final">
+        <h2>Abra a agenda da sua barbearia hoje.</h2>
+        <a href="{{ url_for('cadastrar_barbearia') }}" class="botao vt-cta">Começar {{ dias }} dias grátis</a>
+        {% if whats_link %}<p><a href="{{ whats_link }}" rel="noopener" target="_blank">Prefere conversar antes? Chame no WhatsApp.</a></p>{% endif %}
+    </section>
+
+    <footer class="vt-rodape">
+        <span class="marca">MeuBarber</span>
+        <nav aria-label="Rodapé">
+            <a href="{{ url_for('termos') }}">Termos de uso</a>
+            <a href="{{ url_for('login') }}">Entrar</a>
+            <a href="{{ url_for('cadastrar_barbearia') }}">Criar conta</a>
+        </nav>
+    </footer>
+</div>
+{% endblock %}

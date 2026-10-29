@@ -11,7 +11,7 @@ import models
 import reports
 from conftest import BARBEARIA, BARBEIRO_JOAO
 
-ROTAS_PROTEGIDAS = ["/", "/clientes", "/atendimentos", "/relatorios"]
+ROTAS_PROTEGIDAS = ["/agenda", "/clientes", "/atendimentos", "/relatorios"]
 
 
 def _registrar_atendimentos_dos_dois_barbeiros():
@@ -71,7 +71,7 @@ def test_login_invalido_e_recusado(client_anonimo, usuario, senha):
     resposta = client_anonimo.post("/login", data={"usuario": usuario, "senha": senha})
     assert resposta.status_code == 401
     assert "Usuário ou senha inválidos" in resposta.get_data(as_text=True)
-    assert client_anonimo.get("/").status_code == 302
+    assert client_anonimo.get("/agenda").status_code == 302
 
 
 def test_logado_em_login_vai_para_dashboard(client):
@@ -84,7 +84,7 @@ def test_logout_encerra_a_sessao(client):
     resposta = client.post("/logout")
     assert resposta.status_code == 302
     assert resposta.headers["Location"].endswith("/login")
-    assert client.get("/").status_code == 302
+    assert client.get("/agenda").status_code == 302
 
 
 def test_logout_nao_aceita_get(client):
@@ -98,7 +98,7 @@ def test_sessao_de_usuario_apagado_vira_anonima(client):
     conn.execute("DELETE FROM usuarios WHERE usuario = 'dono'")
     conn.commit()
     conn.close()
-    assert client.get("/").status_code == 302
+    assert client.get("/agenda").status_code == 302
 
 
 # ---------- DONO ----------
