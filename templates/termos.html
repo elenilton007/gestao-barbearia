@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block titulo %}Termos de uso{% endblock %}
+
+{% block corpo %}
+<main class="pub-largura pub-conteudo">
+    <article class="pub-texto">
+        <h1>Termos de uso do MeuBarber</h1>
+        <p>O MeuBarber é um sistema de agenda e gestão para barbearias. Ao criar uma conta, a barbearia concorda com estas regras.</p>
+        <h2>A conta</h2>
+        <p>Quem cria a conta é o dono e responde por ela: pelos usuários que cadastrar, pelas senhas e pelo que for registrado no sistema.</p>
+        <h2>Dados dos clientes da barbearia</h2>
+        <p>A barbearia é a controladora dos dados dos próprios clientes (nome, WhatsApp e horários), nos termos da Lei Geral de Proteção de Dados (Lei 13.709/2018). O MeuBarber guarda esses dados para a barbearia e não os vende nem usa para outra finalidade. Cada barbearia só vê os próprios dados.</p>
+        <h2>Disponibilidade</h2>
+        <p>Trabalhamos para manter o sistema no ar, mas pode haver interrupções para manutenção ou por falhas de terceiros (hospedagem, internet).</p>
+        <h2>Cancelamento</h2>
+        <p>A barbearia pode pedir o encerramento da conta e a exclusão dos seus dados a qualquer momento.</p>
+        <p class="dica">Versão inicial, sujeita a revisão jurídica antes da cobrança das assinaturas.</p>
+        <p><a class="botao secundario" href="{{ url_for('cadastrar_barbearia') }}">Voltar para o cadastro</a></p>
+    </article>
+</main>
+{% endblock %}

@@ -34,6 +34,19 @@
     </div>
 </header>
 
+{% if dono and (not servicos or not todos_barbeiros) %}
+<section class="painel primeiros-passos" aria-labelledby="passos-titulo">
+    <h2 id="passos-titulo">Primeiros passos</h2>
+    <p class="dica">Faltam poucos minutos para a agenda abrir para os seus clientes.</p>
+    <ol>
+        <li class="{{ 'feito' if servicos }}"><a href="{{ url_for('servicos') }}">Cadastre os serviços</a><span>com preço e duração</span></li>
+        <li class="{{ 'feito' if todos_barbeiros }}"><a href="{{ url_for('barbeiros') }}">Cadastre os barbeiros</a><span>inclusive você, se também atende</span></li>
+        <li><a href="{{ url_for('unidades') }}">Confira o horário de funcionamento</a><span>começa de segunda a sábado, das 9h às 19h</span></li>
+        <li><a href="{{ url_for('configurar_link') }}">Divulgue o seu link de agendamento</a><span>Instagram, WhatsApp e QR code no balcão</span></li>
+    </ol>
+</section>
+{% endif %}
+
 <nav class="semana" aria-label="Dias da semana">
     <a class="seta" href="{{ url_for('agenda_dia', data=semana_anterior.isoformat(), unidade=u) }}" aria-label="Semana anterior">‹</a>
     {% for d in semana %}
@@ -97,8 +110,13 @@
             {% endfor %}
         </div>
         {% else %}
+        {% if not todos_barbeiros %}
+        <p class="quadro-vazio">Nenhum barbeiro cadastrado ainda.
+            {% if dono %}Cadastre a equipe em <a href="{{ url_for('barbeiros') }}">Barbeiros</a> e a agenda aparece aqui.{% endif %}</p>
+        {% else %}
         <p class="quadro-vazio">Nenhum barbeiro atende nesta unidade.
             {% if dono %}Escolha a unidade de cada um em <a href="{{ url_for('barbeiros') }}">Barbeiros</a>.{% endif %}</p>
+        {% endif %}
         {% endif %}
     </section>
 

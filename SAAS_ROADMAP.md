@@ -27,8 +27,9 @@ pelas telas, e rodar `python database.py` **apaga todos os dados**
      com cliente, barbeiro ou serviço de outra barbearia é recusado.
    - ~~Telas para a barbearia nova cadastrar os próprios barbeiros e
      serviços.~~ Feito (menus *Barbeiros* e *Serviços*, só para o dono).
-   - Cadastro de barbearia pela web (hoje é pelo `criar_usuario.py
-     --nova-barbearia`).
+   - ~~Cadastro de barbearia pela web~~ Feito (`/cadastro`, com termos de
+     uso, limite contra robôs e primeiros passos na agenda). Falta período
+     de teste e cobrança.
 2. **Autenticação e permissões**
    - ~~Tabela `usuarios` com senha em hash (`werkzeug.security`), papéis
      *dono* e *barbeiro* (barbeiro vê só as próprias comissões).~~ Feito.

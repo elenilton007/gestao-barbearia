@@ -1203,3 +1203,25 @@ body.publico { background: var(--papel); }
     .qrcode { flex-direction: column; align-items: flex-start; }
     .pub-titulo { font-size: 30px; }
 }
+
+/* ---------- CADASTRO E PRIMEIROS PASSOS ---------- */
+
+.entrada-lista { list-style: none; display: flex; flex-direction: column; gap: 10px; color: #C9D7CF; }
+.entrada-lista li::before { content: ""; display: inline-block; width: 18px; height: 2px; background: var(--latao); vertical-align: middle; margin-right: 10px; }
+.entrada-troca { margin-top: 18px; font-size: 14px; color: var(--cinza); }
+
+.primeiros-passos { border-left: 3px solid var(--latao); }
+.primeiros-passos ol { list-style: none; counter-reset: passo; margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+.primeiros-passos li { counter-increment: passo; display: grid; grid-template-columns: 30px 1fr; column-gap: 10px; align-items: baseline; }
+.primeiros-passos li::before {
+    content: counter(passo);
+    grid-row: span 2;
+    width: 26px; height: 26px; border-radius: 50%;
+    border: 1.5px solid var(--latao);
+    display: inline-grid; place-items: center;
+    font-size: 13px; font-weight: 700; color: var(--verde);
+}
+.primeiros-passos li a { font-weight: 600; }
+.primeiros-passos li span { grid-column: 2; color: var(--cinza); font-size: 13.5px; }
+.primeiros-passos li.feito::before { content: "✓"; background: var(--verde); border-color: var(--verde); color: var(--branco); }
+.primeiros-passos li.feito a { color: var(--cinza); text-decoration: line-through; }

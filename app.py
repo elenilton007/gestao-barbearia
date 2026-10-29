@@ -37,6 +37,7 @@ from flask import (
 from flask_wtf.csrf import CSRFProtect
 
 import agenda
+import cadastro
 import database
 import models
 import publico
@@ -1252,6 +1253,45 @@ def proteger_paginas_publicas(resposta):
         if "/horario/" in request.path:
             resposta.headers["Cache-Control"] = "no-store"
     return resposta
+
+
+# ---------- CADASTRO DE BARBEARIA (QUEM COMPRA O MEUBARBER) ----------
+
+@app.route("/cadastro", methods=["GET", "POST"])
+def cadastrar_barbearia():
+    if g.usuario is not None:
+        return redirect(url_for("agenda_dia"))
+    if not cadastro.cadastro_aberto():
+        return render_template("cadastro.html", fechado=True), 403
+    if request.method == "POST":
+        if request.form.get("site"):  # campo escondido: só robô preenche
+            abort(400)
+        if request.form.get("aceite") != "1":
+            flash("Para criar a conta, aceite os termos de uso.")
+            return render_template("cadastro.html", dados=request.form), 400
+        if not publico.pode_tentar(f"cadastro:{_ip()}", 3, 60 * 60):
+            flash("Muitas contas criadas deste aparelho. Tente de novo mais tarde.")
+            return render_template("cadastro.html", dados=request.form), 429
+        try:
+            dono = cadastro.criar_conta(
+                request.form.get("nome_barbearia", ""),
+                request.form.get("usuario", ""),
+                request.form.get("senha", ""),
+                request.form.get("confirmacao", ""),
+                request.form.get("whatsapp", ""),
+            )
+        except ValueError as erro:
+            flash(str(erro))
+            return render_template("cadastro.html", dados=request.form), 400
+        _iniciar_sessao(dono)
+        flash("Conta criada. Siga os primeiros passos abaixo para abrir a agenda.", "ok")
+        return redirect(url_for("agenda_dia"))
+    return render_template("cadastro.html", dados={})
+
+
+@app.route("/termos")
+def termos():
+    return render_template("termos.html")
 
 
 if __name__ == "__main__":

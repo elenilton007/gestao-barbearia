@@ -59,6 +59,8 @@ def criar_barbearia_com_dono(nome, usuario, senha):
     (nome repetido, por exemplo), a barbearia também não é. Retorna o id da
     barbearia.
     """
+    nome = _validar_nome(nome, "O nome da barbearia")
+    usuario = _validar_nome(usuario, "O nome de usuário")
     _validar_senha(senha)
     conn = get_connection()
     try:
@@ -626,6 +628,20 @@ def definir_usuario_ativo(barbearia_id, usuario_id, ativo):
         finally:
             conn.close()
     _definir_ativo("usuarios", barbearia_id, usuario_id, ativo)
+
+
+def buscar_usuario_por_nome(usuario):
+    conn = get_connection()
+    encontrado = conn.execute(
+        "SELECT * FROM usuarios WHERE usuario = ?", (usuario,)
+    ).fetchone()
+    conn.close()
+    return encontrado
+
+
+def autenticar_existe(usuario):
+    """True se já existe um usuário com esse nome (em qualquer barbearia)."""
+    return buscar_usuario_por_nome(usuario) is not None
 
 
 def autenticar(usuario, senha):

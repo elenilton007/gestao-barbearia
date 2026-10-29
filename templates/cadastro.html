@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block titulo %}Criar minha barbearia{% endblock %}
+
+{% block corpo %}
+<div class="tela-entrada">
+    <section class="entrada-marca">
+        <a class="marca" href="{{ url_for('login') }}">MeuBarber</a>
+        <div>
+            <p class="entrada-frase">Sua barbearia com agenda online hoje mesmo.</p>
+        </div>
+        <ul class="entrada-lista">
+            <li>Link para o cliente marcar sozinho, a qualquer hora</li>
+            <li>Agenda por barbeiro, com sem preferência</li>
+            <li>Caixa do dia e comissão calculada</li>
+        </ul>
+    </section>
+
+    <section class="entrada-form">
+        <div>
+            {% if fechado %}
+            <h1>Cadastro fechado</h1>
+            <p class="dica">No momento não estamos abrindo contas novas. Fale com a equipe do MeuBarber.</p>
+            <p><a href="{{ url_for('login') }}">Já tenho conta</a></p>
+            {% else %}
+            <h1>Criar minha barbearia</h1>
+            <p class="dica">Leva um minuto. Você vira o dono da conta e cadastra a equipe depois.</p>
+            {% for categoria, mensagem in get_flashed_messages(with_categories=true) %}
+            <p class="alerta" role="alert">{{ mensagem }}</p>
+            {% endfor %}
+            <form method="POST" action="{{ url_for('cadastrar_barbearia') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="pub-isca" aria-hidden="true">
+                    <label for="site">Não preencha</label>
+                    <input type="text" id="site" name="site" tabindex="-1" autocomplete="off">
+                </div>
+                <div class="campo">
+                    <label for="nome_barbearia">Nome da barbearia</label>
+                    <input type="text" id="nome_barbearia" name="nome_barbearia" value="{{ dados.get('nome_barbearia', '') }}" maxlength="80" autocomplete="organization" required autofocus>
+                </div>
+                <div class="campo">
+                    <label for="whatsapp">WhatsApp da barbearia</label>
+                    <input type="tel" id="whatsapp" name="whatsapp" value="{{ dados.get('whatsapp', '') }}" placeholder="(71) 90000-0000" autocomplete="tel-national" required>
+                </div>
+                <div class="campo">
+                    <label for="usuario">Usuário para entrar</label>
+                    <input type="text" id="usuario" name="usuario" value="{{ dados.get('usuario', '') }}" autocapitalize="none" autocomplete="username" placeholder="joao.silva" required>
+                    <p class="dica">Letras minúsculas, números, ponto ou hífen.</p>
+                </div>
+                <div class="grade-campos">
+                    <div class="campo">
+                        <label for="senha">Senha</label>
+                        <input type="password" id="senha" name="senha" minlength="8" autocomplete="new-password" required>
+                    </div>
+                    <div class="campo">
+                        <label for="confirmacao">Repita a senha</label>
+                        <input type="password" id="confirmacao" name="confirmacao" minlength="8" autocomplete="new-password" required>
+                    </div>
+                </div>
+                <p class="dica">Pelo menos 8 caracteres.</p>
+                <label class="opcao-linha">
+                    <input type="checkbox" name="aceite" value="1" required>
+                    <span>Li e aceito os <a href="{{ url_for('termos') }}" target="_blank" rel="noopener">termos de uso</a>.</span>
+                </label>
+                <button type="submit">Criar minha barbearia</button>
+            </form>
+            <p class="entrada-troca">Já tem conta? <a href="{{ url_for('login') }}">Entrar</a></p>
+            {% endif %}
+        </div>
+    </section>
+</div>
+{% endblock %}
