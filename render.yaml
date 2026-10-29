@@ -5,7 +5,9 @@
 # Veja o passo a passo no README.
 services:
   - type: web
-    name: meubarber
+    # Mesmo nome do serviço que já existe no Render: o Blueprint acha o
+    # serviço pelo nome; com outro nome ele criaria um site novo.
+    name: gestao-barbearia
     runtime: docker
     plan: free
     healthCheckPath: /login
