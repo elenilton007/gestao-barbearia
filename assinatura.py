@@ -65,6 +65,16 @@ def valor_plano():
     return round(float(os.environ.get("PLANO_VALOR", "49.90").replace(",", ".")), 2)
 
 
+def link_cartao():
+    """
+    Link de pagamento com cartão de outro meio (LINK_CARTAO, ex.: RecargaPay ou
+    InfinitePay). Só aceita https. Esse pagamento não avisa o app sozinho: o
+    dono do MeuBarber confere no app do meio de pagamento e libera.
+    """
+    link = os.environ.get("LINK_CARTAO", "").strip()
+    return link if link.startswith("https://") and " " not in link else ""
+
+
 def dias_de_teste():
     """Dias grátis de conta nova. 0 = paga no cadastro para liberar o acesso."""
     return max(int(os.environ.get("TESTE_DIAS", "7")), 0)

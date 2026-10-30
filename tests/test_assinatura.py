@@ -419,3 +419,28 @@ def test_chave_colada_com_espaco_ou_aspas_funciona(monkeypatch):
     monkeypatch.setenv("ASAAS_API_KEY", ' "$aact_prod_abc123"\n')
     assinatura._chamar("GET", "/customers")
     assert enviados["chave"] == "$aact_prod_abc123"
+
+
+# ---------- LINK DE CARTÃO DE OUTRO MEIO ----------
+
+def test_link_de_cartao_aparece_na_assinatura(conta_nova, monkeypatch):
+    monkeypatch.setenv("LINK_CARTAO", "https://recargapay.com.br/r/abc123")
+    html = conta_nova.client.get("/assinatura").get_data(as_text=True)
+    assert 'href="https://recargapay.com.br/r/abc123"' in html
+    assert "Pagar com cartão de crédito" in html
+    assert "Ou pague com Pix ou boleto" in html
+
+
+def test_sem_link_ou_link_inseguro_nao_aparece(conta_nova, monkeypatch):
+    monkeypatch.delenv("LINK_CARTAO", raising=False)
+    assert "Pagar com cartão de crédito" not in conta_nova.client.get("/assinatura").get_data(as_text=True)
+    monkeypatch.setenv("LINK_CARTAO", "javascript:alert(1)")
+    assert "Pagar com cartão de crédito" not in conta_nova.client.get("/assinatura").get_data(as_text=True)
+
+
+def test_link_de_cartao_some_quando_a_assinatura_esta_em_dia(conta_nova, cobranca, client_anonimo, monkeypatch):
+    monkeypatch.setenv("LINK_CARTAO", "https://recargapay.com.br/r/abc123")
+    _assinada(conta_nova)
+    _aviso(client_anonimo, {"id": "evt_ok", "event": "PAYMENT_RECEIVED",
+                            "payment": {"id": "pay_1", "subscription": "sub_1"}})
+    assert "recargapay" not in conta_nova.client.get("/assinatura").get_data(as_text=True)

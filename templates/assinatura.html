@@ -27,6 +27,13 @@
     <section class="painel"><p>O acesso da barbearia está suspenso. Peça ao dono da conta para regularizar a assinatura.</p></section>
     {% endif %}
 {% elif situacao.status not in ('isenta',) %}
+    {% if link_cartao and situacao.status != 'ativa' %}
+    <section class="painel">
+        <h2>Pagar com cartão de crédito</h2>
+        <p>Pague a mensalidade de {{ valor|brl }} no cartão, em uma página segura de pagamento. Assim que o pagamento for confirmado, a sua barbearia é liberada pela equipe do MeuBarber.</p>
+        <p style="margin-top: 14px"><a class="botao" href="{{ link_cartao }}" target="_blank" rel="noopener noreferrer">Pagar com cartão de crédito</a></p>
+    </section>
+    {% endif %}
     {% if g.barbearia.link_pagamento %}
     <section class="painel">
         <h2>Fatura em aberto</h2>
@@ -36,7 +43,7 @@
     {% endif %}
     {% if situacao.status != 'ativa' and not g.barbearia.link_pagamento %}
     <section class="painel">
-        <h2>Assinar o MeuBarber</h2>
+        <h2>{{ "Ou pague com Pix ou boleto" if link_cartao else "Assinar o MeuBarber" }}</h2>
         <p class="dica" style="margin-bottom: 14px">Os dados vão para o Asaas, que emite a cobrança mensal. {% if situacao.status == 'teste' %}A primeira mensalidade vence no fim do teste grátis: assinar agora não tira nenhum dia.{% endif %}</p>
         <form method="POST" action="{{ url_for('assinar') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

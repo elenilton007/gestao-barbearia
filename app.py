@@ -1414,6 +1414,7 @@ def assinatura_pagina():
         situacao=assinatura.situacao(g.barbearia),
         valor=assinatura.valor_plano(),
         cobranca_ativa=assinatura.cobranca_ativa(),
+        link_cartao=assinatura.link_cartao(),
     )
 
 
