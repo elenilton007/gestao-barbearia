@@ -34,7 +34,7 @@ from flask import (
     session,
     url_for,
 )
-from flask_wtf.csrf import CSRFProtect
+from flask_wtf.csrf import CSRFError, CSRFProtect
 
 import agenda
 import assinatura
@@ -69,6 +69,20 @@ app.config["TEMPO_INATIVIDADE"] = 60 * int(
 )
 
 csrf = CSRFProtect(app)
+
+
+@app.errorhandler(CSRFError)
+def formulario_expirado(erro):
+    """
+    Formulário antigo (página aberta há muito tempo ou sessão expirada): em
+    vez da tela crua de "Bad Request", volta para a página de onde veio,
+    com um aviso para tentar de novo. Nada do formulário é aplicado.
+    """
+    flash("Esta página ficou aberta por muito tempo. Confira os dados e envie de novo.", "aviso")
+    origem = request.referrer or ""
+    if origem.startswith(request.host_url):
+        return redirect(origem)
+    return redirect(url_for("dashboard"))
 
 # No Render, o pedido chega por um proxy: ATRAS_DE_PROXY=1 faz o app ler o
 # IP verdadeiro do cliente (X-Forwarded-For), usado no limite de pedidos

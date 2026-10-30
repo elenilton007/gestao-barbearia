@@ -74,3 +74,21 @@ def test_limite_de_login_por_aparelho(client_anonimo):
     resposta = client_anonimo.post("/login", data={"usuario": "dono", "senha": "senha-do-dono"})
     assert resposta.status_code == 429
     assert "Muitas tentativas deste aparelho" in resposta.get_data(as_text=True)
+
+
+def test_formulario_expirado_volta_com_aviso(client_anonimo):
+    from app import app
+    app.config["WTF_CSRF_ENABLED"] = True
+    try:
+        resposta = client_anonimo.post(
+            "/login", data={"usuario": "x", "senha": "y"},
+            headers={"Referer": "http://localhost/login"},
+        )
+        assert resposta.status_code == 302
+        assert resposta.headers["Location"].endswith("/login")
+        assert "ficou aberta por muito tempo" in client_anonimo.get("/login").get_data(as_text=True)
+        # Origem de outro site não é seguida.
+        resposta = client_anonimo.post("/login", data={}, headers={"Referer": "https://golpe.example/x"})
+        assert resposta.headers["Location"].endswith("/")
+    finally:
+        app.config["WTF_CSRF_ENABLED"] = False

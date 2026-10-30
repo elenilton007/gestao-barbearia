@@ -152,7 +152,8 @@ def _chamar(metodo, caminho, dados=None, formulario=False):
     multipart/form-data (o pedido de antecipação aceita anexar documentos
     e é documentado nesse formato); o resto vai em JSON.
     """
-    chave = os.environ.get("ASAAS_API_KEY", "")
+    # Tira espaços, quebras de linha e aspas que vêm junto ao colar no Render.
+    chave = os.environ.get("ASAAS_API_KEY", "").strip().strip("'\"").strip()
     if not chave:
         raise ErroCobranca("A cobrança ainda não foi configurada. Fale com o MeuBarber.")
     url = os.environ.get("ASAAS_URL", "https://api-sandbox.asaas.com/v3").rstrip("/") + caminho

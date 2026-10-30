@@ -108,7 +108,7 @@ def test_cadastros_exigem_csrf(client_csrf):
     resposta = client_csrf.post(
         "/barbeiros/novo", data={"nome": "Sem Token", "comissao_percentual": "40"}
     )
-    assert resposta.status_code == 400
+    assert resposta.status_code == 302  # recusado: volta com aviso, nada gravado
     assert "Sem Token" not in {b["nome"] for b in models.listar_barbeiros(BARBEARIA)}
 
 

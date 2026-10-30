@@ -186,7 +186,7 @@ def test_troca_de_senha_encerra_as_outras_sessoes(client):
 
 
 def test_troca_de_senha_sem_token_csrf_e_rejeitada(client_csrf):
-    assert _trocar(client_csrf).status_code == 400
+    assert _trocar(client_csrf).status_code == 302
     assert models.autenticar("dono", "senha-do-dono") is not None
 
 

@@ -444,7 +444,8 @@ def test_nome_do_cliente_nao_quebra_o_html(client):
 
 def test_csrf_protege_marcar(client_csrf):
     resposta = client_csrf.post("/agenda/novo", data={"unidade_id": "1"})
-    assert resposta.status_code == 400
+    assert resposta.status_code == 302
+    assert "ficou aberta por muito tempo" in client_csrf.get("/agenda").get_data(as_text=True)
 
 
 def test_anonimo_vai_para_o_login(client_anonimo):

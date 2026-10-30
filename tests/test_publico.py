@@ -207,7 +207,7 @@ def test_csrf_protege_o_agendamento_publico(slug):
     app.config["WTF_CSRF_ENABLED"] = True
     try:
         with app.test_client() as client:
-            assert client.post(f"/b/{slug}/agendar", data=_pedido(slug)).status_code == 400
+            assert client.post(f"/b/{slug}/agendar", data=_pedido(slug)).status_code == 302
     finally:
         app.config["WTF_CSRF_ENABLED"] = False
 

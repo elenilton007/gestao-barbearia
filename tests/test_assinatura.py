@@ -396,3 +396,26 @@ def test_formulario_vai_em_multipart(monkeypatch):
     assert assinatura._chamar("POST", "/anticipations", {"payment": "pay_9"}, formulario=True) == {"id": "ant_1"}
     assert enviados["tipo"].startswith("multipart/form-data; boundary=")
     assert b'name="payment"\r\n\r\npay_9\r\n' in enviados["corpo"]
+
+
+def test_chave_colada_com_espaco_ou_aspas_funciona(monkeypatch):
+    enviados = {}
+
+    class Resposta:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return b"{}"
+
+    def abrir(pedido, timeout):
+        enviados["chave"] = pedido.get_header("Access_token")
+        return Resposta()
+
+    monkeypatch.setattr(assinatura.urllib.request, "urlopen", abrir)
+    monkeypatch.setenv("ASAAS_API_KEY", ' "$aact_prod_abc123"\n')
+    assinatura._chamar("GET", "/customers")
+    assert enviados["chave"] == "$aact_prod_abc123"

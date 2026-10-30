@@ -57,7 +57,8 @@ def test_secret_key_vem_do_ambiente_e_debug_desligado(monkeypatch, reimportar_ap
 @pytest.mark.parametrize("rota", ["/clientes/novo", "/atendimentos/novo"])
 def test_post_sem_token_csrf_e_rejeitado(client_csrf, rota):
     resposta = client_csrf.post(rota, data={"nome": "Sem Token"})
-    assert resposta.status_code == 400
+    assert resposta.status_code == 302  # recusado: volta com aviso
+    assert "Sem Token" not in client_csrf.get("/clientes").get_data(as_text=True)
 
 
 @pytest.mark.parametrize("pagina", ["/clientes", "/atendimentos"])
