@@ -432,6 +432,7 @@ def test_link_de_cartao_aparece_na_assinatura(conta_nova, monkeypatch):
     assert 'href="https://recargapay.com.br/r/abc123"' in html
     assert "Pagar com cartão de crédito" in html
     assert "Ou pague com Pix ou boleto" in html
+    assert "Click to Pay" in html  # orienta a não usar
 
 
 def test_sem_link_ou_link_inseguro_nao_aparece(conta_nova, monkeypatch):

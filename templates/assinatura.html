@@ -31,6 +31,11 @@
     <section class="painel">
         <h2>Pagar com cartão de crédito</h2>
         <p>Pague a mensalidade de {{ valor|brl }} no cartão, em uma página segura de pagamento. Assim que o pagamento for confirmado, a sua barbearia é liberada pela equipe do MeuBarber.</p>
+        <ol class="dica" style="margin: 12px 0 0 18px">
+            <li>Na página de pagamento, escolha <strong>Cartão de crédito</strong> ou <strong>Google Pay</strong>. Não use "Click to Pay", que só funciona com cartão já cadastrado nesse serviço.</li>
+            <li>Preencha com o nome, o CPF e o endereço do <strong>dono do cartão</strong>.</li>
+            <li>Se o banco pedir confirmação, aprove primeiro no aplicativo do banco e só depois toque em "Pronto" ou "Continuar".</li>
+        </ol>
         <p style="margin-top: 14px"><a class="botao" href="{{ link_cartao }}" target="_blank" rel="noopener noreferrer">Pagar com cartão de crédito</a></p>
     </section>
     {% endif %}
