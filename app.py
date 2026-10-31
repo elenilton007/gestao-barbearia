@@ -1409,6 +1409,8 @@ def termos():
 @app.route("/assinatura")
 @login_obrigatorio
 def assinatura_pagina():
+    if g.usuario["papel"] == "dono":
+        assinatura.acertar_valor(g.barbearia)  # preço mudou: fatura em aberto acompanha
     return render_template(
         "assinatura.html",
         situacao=assinatura.situacao(g.barbearia),

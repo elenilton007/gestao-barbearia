@@ -229,6 +229,7 @@ def assinar(barbearia, documento, email):
 
     if barbearia["asaas_assinatura_id"] and barbearia["assinatura_status"] in ("ativa", "atrasada", "teste", "pendente"):
         assinatura_id = barbearia["asaas_assinatura_id"]
+        acertar_valor(barbearia)
     else:
         vencimento = _hoje()
         fim_teste = _ler_data(barbearia["teste_ate"])
@@ -253,6 +254,29 @@ def assinar(barbearia, documento, email):
     link = sorted(abertas, key=lambda c: c.get("dueDate", ""))[0]["invoiceUrl"]
     _gravar(barbearia["id"], link_pagamento=link)
     return link
+
+
+def acertar_valor(barbearia):
+    """
+    Se o preço (PLANO_VALOR) mudou depois que a assinatura foi criada no
+    Asaas, atualiza o valor dela e das faturas em aberto, para o cliente não
+    pagar o preço antigo. Só para quem ainda não pagou. Falha aqui é
+    silenciosa: a tela continua abrindo e mostra o que já existe.
+    """
+    assinatura_id = barbearia["asaas_assinatura_id"]
+    if not assinatura_id or barbearia["assinatura_status"] not in ("teste", "pendente", "atrasada"):
+        return False
+    valor = valor_plano()
+    try:
+        cobrancas = _chamar("GET", f"/subscriptions/{assinatura_id}/payments").get("data") or []
+        abertas = [c for c in cobrancas if c.get("status") in ("PENDING", "OVERDUE")]
+        if not abertas or all(round(float(c.get("value") or 0), 2) == valor for c in abertas):
+            return False
+        _chamar("POST", f"/subscriptions/{assinatura_id}", {"value": valor, "updatePendingPayments": True})
+        return True
+    except (ErroCobranca, ValueError, TypeError) as erro:
+        log.warning("Não foi possível acertar o valor da assinatura %s: %s", assinatura_id, erro)
+        return False
 
 
 # ---------- AVISOS DO ASAAS (WEBHOOK) ----------

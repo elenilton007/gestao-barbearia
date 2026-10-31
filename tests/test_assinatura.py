@@ -43,7 +43,10 @@ def cobranca(monkeypatch):
             return {"id": "sub_1"}
         if caminho == "/subscriptions/sub_1/payments":
             return {"data": [{"id": "pay_1", "status": "PENDING", "dueDate": dados or "2030-03-15",
+                              "value": assinatura.valor_plano(),
                               "invoiceUrl": "https://www.asaas.com/i/pay_1"}]}
+        if caminho == "/subscriptions/sub_1" and metodo == "POST":
+            return {"id": "sub_1"}
         raise AssertionError(caminho)
 
     monkeypatch.setattr(assinatura, "_chamar", falso_asaas)
@@ -444,3 +447,47 @@ def test_link_de_cartao_some_quando_a_assinatura_esta_em_dia(conta_nova, cobranc
     _aviso(client_anonimo, {"id": "evt_ok", "event": "PAYMENT_RECEIVED",
                             "payment": {"id": "pay_1", "subscription": "sub_1"}})
     assert "recargapay" not in conta_nova.client.get("/assinatura").get_data(as_text=True)
+
+
+# ---------- PREÇO MUDOU DEPOIS DA FATURA ----------
+
+def _asaas_com_fatura_de(cobranca, monkeypatch, valor_antigo):
+    original = assinatura._chamar
+
+    def chamar(metodo, caminho, dados=None, formulario=False):
+        if caminho == "/subscriptions/sub_1/payments":
+            cobranca.chamadas.append((metodo, caminho, dados))
+            return {"data": [{"id": "pay_1", "status": "PENDING", "value": valor_antigo,
+                              "dueDate": "2030-03-08", "invoiceUrl": "https://www.asaas.com/i/pay_1"}]}
+        if caminho == "/subscriptions/sub_1" and metodo == "POST":
+            cobranca.chamadas.append((metodo, caminho, dados))
+            return {"id": "sub_1"}
+        return original(metodo, caminho, dados)
+
+    monkeypatch.setattr(assinatura, "_chamar", chamar)
+
+
+def test_fatura_em_aberto_acompanha_o_preco_novo(conta_nova, cobranca, monkeypatch):
+    _assinada(conta_nova)  # criada a 59,90
+    monkeypatch.setenv("PLANO_VALOR", "19.90")
+    _asaas_com_fatura_de(cobranca, monkeypatch, 59.90)
+    assert conta_nova.client.get("/assinatura").status_code == 200
+    assert ("POST", "/subscriptions/sub_1", {"value": 19.90, "updatePendingPayments": True}) in cobranca.chamadas
+
+
+def test_preco_igual_nao_mexe_no_asaas(conta_nova, cobranca, monkeypatch):
+    _assinada(conta_nova)
+    _asaas_com_fatura_de(cobranca, monkeypatch, 59.90)
+    conta_nova.client.get("/assinatura")
+    assert not any(m == "POST" and c == "/subscriptions/sub_1" for m, c, _ in cobranca.chamadas)
+
+
+def test_erro_no_asaas_nao_derruba_a_tela(conta_nova, cobranca, monkeypatch):
+    _assinada(conta_nova)
+    monkeypatch.setenv("PLANO_VALOR", "19.90")
+
+    def falha(*a, **k):
+        raise assinatura.ErroCobranca("fora do ar")
+
+    monkeypatch.setattr(assinatura, "_chamar", falha)
+    assert conta_nova.client.get("/assinatura").status_code == 200
